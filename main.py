@@ -1,34 +1,51 @@
 import pandas as pd
 from pathlib import Path
-from tools.aho import matches_keyword_aho, build_automaton
+from tools.aho import build_automaton
 from tools.ai import sentiment_check
-
-KEYWORDS = {
-    "abott": {"required": [], "include": ["abott", "雅培"], "exclude": []},
-    "friso": {
-        "required": [],
-        "include": ["friso", "美素"],
-        "exclude": ["gold", "prestige", "bio", "signature", "金裝", "皇家", "有機"],
-    },
-    "friso_gold": {
-        "required": ["friso", "美素"],
-        "include": ["gold", "金裝"],
-        "exclude": [],
-    },
-}
+from typing import Any
+from collections import defaultdict
 
 
 def make_automation(keywords: dict):
     all_keywords = []
-    for config in KEYWORDS.values():
+    for config in keywords.values():
         all_keywords.extend(config["required"] + config["include"] + config["exclude"])
     automaton = build_automaton(all_keywords)
     return automaton
 
 
-def main():
+def get_keywords(filepath: str = "./files/keywords.xlsx") -> Any:
+    df = pd.read_excel("/files/keywords.xlsx/")
+    return df.loc[
+        (df["brand"] == "friso") & (df["product"] == "bio"),
+        ["keyword", "required_product"],
+    ]
 
-    path = Path(".\\input_csv")
+
+def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
+    files = Path(path).iterdir()
+    df_list = []
+    for file in files:
+        print("Processing", file, "...")
+
+        try:
+            df = pd.read_csv(file)
+            df["Source"] = file.name
+            df_list.append(df)
+        except:
+            print("File path error")
+            return None
+    combined = pd.concat(df_list, ignore_index=True)
+    return combined
+
+
+def get_col_headers(df: pd.DataFrame) -> list:
+    df["headers"] = df["brand"] + "_" + df["product"]
+    return list(df["headers"].unique())
+
+
+def temp():
+    path = Path("/files/chat/")
     files = path.iterdir()
     for file in files:
         print("Processing", file, "...")
@@ -43,7 +60,6 @@ def main():
         mask.loc[mask["MessageBody"].str.contains("bb", na=False), "bb"] = 1
         text_list = mask[mask["bb"] == 1]["MessageBody"]
         index = mask[mask["bb"] == 1]["MessageBody"].index
-        # print(text_list)
         for text in text_list:
             count = 0
             answer = sentiment_check(text)
@@ -52,10 +68,22 @@ def main():
             if count == 10:
                 break
 
-        # print(mask.loc[count, "sentiment"])
-
-        filename = ".\\output\\" + file.name
+        filename = "/output/" + file.name
         mask.to_csv(filename)
+
+
+def main():
+    # get keywords from xlsx
+    keyword_df = pd.read_excel("./files/keywords.xlsx")
+    headers = get_col_headers(keyword_df)
+    # load all csv into one df
+    chat_df = load_csv_into_df()
+    print(chat_df)
+    # add keyword cols to df
+    # tag message content contains keyword in brand cols
+    # get keyword by col header
+    # check keyword in message or not    #
+    # export df into xlsx
 
 
 if __name__ == "__main__":
