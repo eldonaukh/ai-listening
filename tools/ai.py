@@ -4,7 +4,7 @@ from openai import OpenAI, APIStatusError
 
 def sentiment_check(user_prompt: str):
     load_dotenv()
-    if False:
+    if True:
         model = "deepseek-chat"
         client = OpenAI(
             api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
@@ -15,7 +15,7 @@ def sentiment_check(user_prompt: str):
             api_key=os.getenv("OPENAI_API_KEY")
         )
 
-    system_prompt = "你是孕婦健康及初生嬰兒育兒專家, 請判斷用戶提供的文本情緒是正面(P)、負面(N)、中立(I), 永遠只回答相應的情緒代號"
+    system_prompt = "你是孕婦健康及初生嬰兒育兒專家, 用戶會提供嬰兒奶粉品牌名稱, 品牌相關關鍵字, 及奶粉品牌相關的媽媽WhatsApp群組對話給你, 請判斷用戶提供的文本對提及的品牌情緒是正面(P)、負面(N)、中立(I), 永遠只回答相應的情緒代號"
     messages = [
         {"role": "system", "content": system_prompt},
     ]

@@ -1,88 +1,93 @@
 import pandas as pd
 from pathlib import Path
-from tools.aho import build_automaton
-from tools.ai import sentiment_check
-from typing import Any
-from collections import defaultdict
-
-
-def make_automation(keywords: dict):
-    all_keywords = []
-    for config in keywords.values():
-        all_keywords.extend(config["required"] + config["include"] + config["exclude"])
-    automaton = build_automaton(all_keywords)
-    return automaton
-
-
-def get_keywords(filepath: str = "./files/keywords.xlsx") -> Any:
-    df = pd.read_excel("/files/keywords.xlsx/")
-    return df.loc[
-        (df["brand"] == "friso") & (df["product"] == "bio"),
-        ["keyword", "required_product"],
-    ]
 
 
 def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
     files = Path(path).iterdir()
     df_list = []
+    processed = []
     for file in files:
-        print("Processing", file, "...")
-
         try:
             df = pd.read_csv(file)
             df["Source"] = file.name
             df_list.append(df)
-        except:
-            print("File path error")
+            processed.append(file.name)
+        except Exception as e:
+            print("File path error:", e)
             return None
+        print("Processed", ", ".join(processed), end="\r")
     combined = pd.concat(df_list, ignore_index=True)
     return combined
 
 
-def get_col_headers(df: pd.DataFrame) -> list:
-    df["headers"] = df["brand"] + "_" + df["product"]
-    return list(df["headers"].unique())
-
-
-def temp():
-    path = Path("/files/chat/")
-    files = path.iterdir()
-    for file in files:
-        print("Processing", file, "...")
-
-        try:
-            data = pd.read_csv(file)
-        except:
-            print("File path error")
-            return
-        mask = data.fillna(False)
-        mask["bb"] = ""
-        mask.loc[mask["MessageBody"].str.contains("bb", na=False), "bb"] = 1
-        text_list = mask[mask["bb"] == 1]["MessageBody"]
-        index = mask[mask["bb"] == 1]["MessageBody"].index
-        for text in text_list:
-            count = 0
-            answer = sentiment_check(text)
-            mask.loc[index[count], "sentiment"] = answer
-            count += 1
-            if count == 10:
-                break
-
-        filename = "/output/" + file.name
-        mask.to_csv(filename)
+# combine required product keyword
+def get_req_product_kw(row: pd.Series, df: pd.DataFrame) -> str | None:
+    if pd.isna(row["required_product"]):
+        return None
+    products = [p.strip() for p in row["required_product"].split(",")]
+    keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
+    return "|".join(keywords)
 
 
 def main():
     # get keywords from xlsx
     keyword_df = pd.read_excel("./files/keywords.xlsx")
-    headers = get_col_headers(keyword_df)
+    keyword_df["headers"] = keyword_df["brand"] + "_" + keyword_df["product"]
+    headers = list(keyword_df["headers"].unique())
+    keyword_df["required_kw"] = keyword_df.apply(
+        lambda row: get_req_product_kw(row, keyword_df), axis=1
+    )
     # load all csv into one df
-    chat_df = load_csv_into_df()
-    print(chat_df)
+    df = load_csv_into_df()
+
     # add keyword cols to df
-    # tag message content contains keyword in brand cols
-    # get keyword by col header
-    # check keyword in message or not    #
+    for header in headers:
+        df[header] = ""
+    
+    # get lists of col headers, depending on generic or specific product
+    generic = [header for header in headers if "generic" in header]
+    non_generic = [header for header in headers if "generic" not in header]
+
+    # check keywords of non-generic product column
+    for header in non_generic:
+        df[header] = 0
+        matched = keyword_df[keyword_df["headers"] == header]
+        for row in matched.itertuples():
+            if row.required_kw:
+                mask_required = df["MessageBody"].str.contains(
+                    row.required_kw, case=False, na=False
+                )
+                mask_keyword = df["MessageBody"].str.contains(
+                    row.keyword, case=False, na=False
+                )
+                mask = mask_required & mask_keyword
+            else:
+                mask = df["MessageBody"].str.contains(row.keyword, case=False, na=False)
+            df[header] = df[header] | mask.astype(int)
+
+    # check keywords of generic product column
+    for header in generic:
+        df[header] = 0
+        main = header.replace("_generic", "")
+        subbrand = [brand for brand in non_generic if main in brand]
+        # get rows where non-generic product columns are tagged
+        mask_skip = df[subbrand].any(axis=1)
+        matched = keyword_df[keyword_df["headers"] == header]
+        for row in matched.itertuples():
+            if row.required_kw:
+                mask_required = df.loc[~mask_skip, "MessageBody"].str.contains(
+                    row.required_kw, case=False, na=False
+                )
+                mask_keyword = df.loc[~mask_skip, "MessageBody"].str.contains(
+                    row.keyword, case=False, na=False
+                )
+                mask = mask_required & mask_keyword
+            else:
+                mask = df.loc[~mask_skip, "MessageBody"].str.contains(
+                    row.keyword, case=False, na=False
+                )
+            df.loc[~mask_skip, header] = df.loc[~mask_skip, header] | mask.astype(int)
+            
     # export df into xlsx
 
 
