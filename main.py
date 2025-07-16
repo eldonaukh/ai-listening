@@ -1,5 +1,7 @@
 import pandas as pd
 from pathlib import Path
+from tools.ai import sentiment_check
+from typing import Any
 
 
 def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
@@ -27,6 +29,22 @@ def get_req_product_kw(row: pd.Series, df: pd.DataFrame) -> str | None:
     products = [p.strip() for p in row["required_product"].split(",")]
     keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
     return "|".join(keywords)
+
+def pass_to_llm(row: pd.Series, header: str, keyword_df: pd.DataFrame) -> pd.Series:
+    keywords: list[str] = []
+    matched = keyword_df[keyword_df["headers"] == header]
+    for kw_row in matched.itertuples():
+        row_req_kw: Any = kw_row.required_kw
+        if row_req_kw:
+            keywords.extend(row_req_kw.split("|"))
+        row_kw: Any = kw_row.keyword
+        keywords.extend(row_kw)
+        
+    data = f'{"Formula Brand": header, "Keyword": ", ".join(set(keywords)), "Message": row["MessageBody"]}'
+    sentiment = sentiment_check(data)
+    row["header"] = sentiment
+    
+    return row
 
 
 def main():
