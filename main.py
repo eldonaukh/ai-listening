@@ -2,6 +2,7 @@ import pandas as pd
 from pathlib import Path
 from tools.ai import sentiment_check
 from typing import Any
+from tqdm import tqdm
 
 
 def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
@@ -45,33 +46,26 @@ def get_req_product_kw(row: pd.Series, df: pd.DataFrame) -> str | None:
     return "|".join(keywords)
 
 
-def pass_to_llm(row: pd.Series, header: str, keyword_df: pd.DataFrame) -> pd.Series:
-    keywords: list[str] = []
-    matched = keyword_df[keyword_df["headers"] == header]
-    for kw_row in matched.itertuples():
-        row_req_kw: Any = kw_row.required_kw
-        if row_req_kw:
-            keywords.extend(row_req_kw.split("|"))
-        row_kw: Any = kw_row.keyword
-        keywords.extend(row_kw)
-
-    data = f'{"Formula Brand": header, "Keyword": ", ".join(set(keywords)), "Message": row["MessageBody"]}'
+def pass_to_llm(row: pd.Series, header: str, keywords: str) -> pd.Series:
+    data = (
+        f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["MessageBody"]}"
+    )
     sentiment = sentiment_check(data)
-    row["header"] = sentiment
-
+    row[header] = sentiment
     return row
 
 
 def main():
+    tqdm.pandas()
     # get keywords from xlsx
     keyword_df = pd.read_excel("./files/keywords.xlsx")
     keyword_df["headers"] = keyword_df["brand"] + "_" + keyword_df["product"]
-    headers = list(keyword_df["headers"].unique())
+    headers: list[str] = list(keyword_df["headers"].unique())
     keyword_df["required_kw"] = keyword_df.apply(
         lambda row: get_req_product_kw(row, keyword_df), axis=1
     )
     # load all csv into one df
-    df = load_csv_into_df()
+    df: pd.DataFrame = load_csv_into_df()
 
     # add keyword cols to df
     for header in headers:
@@ -119,15 +113,32 @@ def main():
                 )
             df.loc[~mask_skip, header] = df.loc[~mask_skip, header] | mask.astype(int)
 
-    # pass chat data to llm
     for header in headers:
+        # turn 0 into empty str
         df[header] = df[header].astype("object")
         df.loc[df[header] == 0, header] = ""
-        # df[header] = df[header].apply(lambda row: pass_to_llm(row, header, keyword_df))
+        
+    for header in headers:
+        # get header keyword list in str
+        keywords: list[str] = []
+        matched = keyword_df[keyword_df["headers"] == header]
+        for kw_row in matched.itertuples():
+            row_req_kw: Any = kw_row.required_kw
+            if row_req_kw:
+                keywords.extend(row_req_kw.split("|"))
+            row_kw: Any = kw_row.keyword
+            keywords.extend(row_kw)
+        kw_str = ", ".join(set(keywords))
+
+        # ask llm for sentiment check
+        df[df[header] == 1] = df[df[header] == 1].progress_apply(
+            lambda row: pass_to_llm(row, header, kw_str), axis=1
+        )
 
     # export df into xlsx
     with pd.ExcelWriter("./files/output.xlsx") as writer:
         df.to_excel(writer, sheet_name="processed", index=False)
+        print("Dataframe has been exported.")
 
 
 if __name__ == "__main__":
