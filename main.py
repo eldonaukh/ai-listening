@@ -17,8 +17,22 @@ def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
         except Exception as e:
             print("File path error:", e)
             return None
-        print("Processed", ", ".join(processed), end="\r")
-    combined = pd.concat(df_list, ignore_index=True)
+    print(f"Processed {len(processed)} files")
+    combined = pd.concat(df_list, ignore_index=True).reindex(
+        [
+            "Source",
+            "Date1",
+            "Date2",
+            "Time",
+            "UserPhone",
+            "UserName",
+            "QuotedMessage",
+            "MessageBody",
+            "MediaType",
+            "MediaCaption",
+        ],
+        axis=1,
+    )
     return combined
 
 
@@ -30,6 +44,7 @@ def get_req_product_kw(row: pd.Series, df: pd.DataFrame) -> str | None:
     keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
     return "|".join(keywords)
 
+
 def pass_to_llm(row: pd.Series, header: str, keyword_df: pd.DataFrame) -> pd.Series:
     keywords: list[str] = []
     matched = keyword_df[keyword_df["headers"] == header]
@@ -39,11 +54,11 @@ def pass_to_llm(row: pd.Series, header: str, keyword_df: pd.DataFrame) -> pd.Ser
             keywords.extend(row_req_kw.split("|"))
         row_kw: Any = kw_row.keyword
         keywords.extend(row_kw)
-        
+
     data = f'{"Formula Brand": header, "Keyword": ", ".join(set(keywords)), "Message": row["MessageBody"]}'
     sentiment = sentiment_check(data)
     row["header"] = sentiment
-    
+
     return row
 
 
@@ -60,15 +75,14 @@ def main():
 
     # add keyword cols to df
     for header in headers:
-        df[header] = ""
-    
+        df[header] = 0
+
     # get lists of col headers, depending on generic or specific product
     generic = [header for header in headers if "generic" in header]
     non_generic = [header for header in headers if "generic" not in header]
 
     # check keywords of non-generic product column
     for header in non_generic:
-        df[header] = 0
         matched = keyword_df[keyword_df["headers"] == header]
         for row in matched.itertuples():
             if row.required_kw:
@@ -85,7 +99,6 @@ def main():
 
     # check keywords of generic product column
     for header in generic:
-        df[header] = 0
         main = header.replace("_generic", "")
         subbrand = [brand for brand in non_generic if main in brand]
         # get rows where non-generic product columns are tagged
@@ -105,8 +118,16 @@ def main():
                     row.keyword, case=False, na=False
                 )
             df.loc[~mask_skip, header] = df.loc[~mask_skip, header] | mask.astype(int)
-            
+
+    # pass chat data to llm
+    for header in headers:
+        df[header] = df[header].astype("object")
+        df.loc[df[header] == 0, header] = ""
+        # df[header] = df[header].apply(lambda row: pass_to_llm(row, header, keyword_df))
+
     # export df into xlsx
+    with pd.ExcelWriter("./files/output.xlsx") as writer:
+        df.to_excel(writer, sheet_name="processed", index=False)
 
 
 if __name__ == "__main__":
