@@ -5,8 +5,8 @@ from typing import Any
 from tqdm import tqdm
 
 
-def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
-    files = Path(path).iterdir()
+def load_csv_into_df(path: Path) -> pd.DataFrame | None:
+    files = path.iterdir()
     df_list = []
     processed = []
     for file in files:
@@ -18,7 +18,7 @@ def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
         except Exception as e:
             print("File path error:", e)
             return None
-    print(f"Processed {len(processed)} files")
+
     combined = pd.concat(df_list, ignore_index=True).reindex(
         [
             "Source",
@@ -34,6 +34,7 @@ def load_csv_into_df(path: str = "./files/chat/") -> pd.DataFrame | None:
         ],
         axis=1,
     )
+    print(f"Processed {len(processed)} files in folder.")
     return combined
 
 
@@ -55,19 +56,9 @@ def pass_to_llm(row: pd.Series, header: str, keywords: str) -> pd.Series:
     return row
 
 
-def main():
-    tqdm.pandas()
-    # get keywords from xlsx
-    keyword_df = pd.read_excel("./files/keywords.xlsx")
-    keyword_df["headers"] = keyword_df["brand"] + "_" + keyword_df["product"]
-    headers: list[str] = list(keyword_df["headers"].unique())
-    keyword_df["required_kw"] = keyword_df.apply(
-        lambda row: get_req_product_kw(row, keyword_df), axis=1
-    )
-    # load all csv into one df
-    df: pd.DataFrame = load_csv_into_df()
-
+def process_chat(df: pd.DataFrame, keyword_df: pd.DataFrame) -> pd.DataFrame:
     # add keyword cols to df
+    headers: list[str] = list(keyword_df["headers"].unique())
     for header in headers:
         df[header] = 0
 
@@ -117,7 +108,7 @@ def main():
         # turn 0 into empty str
         df[header] = df[header].astype("object")
         df.loc[df[header] == 0, header] = ""
-        
+
     for header in headers:
         # get header keyword list in str
         keywords: list[str] = []
@@ -135,10 +126,34 @@ def main():
             lambda row: pass_to_llm(row, header, kw_str), axis=1
         )
 
+    return df
+
+
+def main():
+    tqdm.pandas()
+    # get keywords from xlsx
+    base_path = Path("./files")
+    keyword_df = pd.read_excel(base_path / "keywords.xlsx")
+    keyword_df["headers"] = keyword_df["brand"] + "_" + keyword_df["product"]
+    keyword_df["required_kw"] = keyword_df.apply(
+        lambda row: get_req_product_kw(row, keyword_df), axis=1
+    )
+    sheets: dict[str, pd.DataFrame] = {}
+    # load all csv files in folder into one df
+    chat = base_path / "chat"
+    subfolders: list[Path] = [f for f in chat.iterdir() if f.is_dir()]
+    for sub in subfolders:
+        print("Start processing:", sub.name)
+        df: pd.DataFrame = load_csv_into_df(sub)
+        processed = process_chat(df=df, keyword_df=keyword_df)
+        print("Processed:", sub.name)
+        sheets[sub.name] = processed
+
     # export df into xlsx
     with pd.ExcelWriter("./files/output.xlsx") as writer:
-        df.to_excel(writer, sheet_name="processed", index=False)
-        print("Dataframe has been exported.")
+        for sheetname, dataframe in sheets.items():
+            dataframe.to_excel(writer, sheet_name=sheetname, index=False)
+            print(f"Sheet: {sheetname} has been added to file.")
 
 
 if __name__ == "__main__":

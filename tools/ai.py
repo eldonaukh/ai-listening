@@ -16,7 +16,11 @@ def sentiment_check(user_prompt: str, model_to_ask: str = "gpt"):
             api_key=os.getenv("OPENAI_API_KEY")
         )
 
-    system_prompt = "你是孕婦健康及初生嬰兒育兒專家, 以及嬰兒奶粉品牌專家。用戶會提供嬰兒奶粉品牌名稱, 品牌相關關鍵字, 及奶粉品牌相關的 WhatsApp 媽媽群組對話給你, 請判斷用戶提供的文本對提及的品牌情緒是正面(P)、負面(N)、中立(I), 永遠只回答相應的情緒代號: P / N/ I"
+    system_prompt = """
+    你是孕婦健康及初生嬰兒育兒專家, 以及嬰兒奶粉品牌專家。
+    用戶會提供嬰兒奶粉品牌名稱, 品牌相關關鍵字, 及奶粉品牌相關的 WhatsApp 媽媽群組對話給你, 請判斷用戶提供的文本對提及的品牌情緒是正面(P)、負面(N)、中立(I), 並提供原因。
+    永遠只回答相應的情緒代號: P / N / I
+    """
     messages: list[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
     ]
