@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 from pathlib import Path
 from tools.ai import sentiment_check
 from typing import Any
@@ -31,6 +32,7 @@ def load_csv_into_df(path: Path) -> pd.DataFrame | None:
             "MessageBody",
             "MediaType",
             "MediaCaption",
+            "Reason",
         ],
         axis=1,
     )
@@ -51,8 +53,10 @@ def pass_to_llm(row: pd.Series, header: str, keywords: str) -> pd.Series:
     data = (
         f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["MessageBody"]}"
     )
-    sentiment = sentiment_check(data)
-    row[header] = sentiment
+    response = sentiment_check(data)
+    response_json = json.loads(response)
+    row[header] = response_json["sentiment"]
+    row["Reason"] = response_json["reason"]
     return row
 
 

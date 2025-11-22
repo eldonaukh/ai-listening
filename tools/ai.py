@@ -3,23 +3,36 @@ from dotenv import load_dotenv
 from openai import OpenAI, APIStatusError
 from openai.types.chat import ChatCompletionMessageParam
 
-def sentiment_check(user_prompt: str, model_to_ask: str = "gpt"):
+def sentiment_check(user_prompt: str, model_to_ask: str = "poe"):
     load_dotenv()
-    if model_to_ask == "deepseek":
-        model = "deepseek-chat"
-        client = OpenAI(
-            api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
-        )
-    elif model_to_ask == "gpt":
-        model = "gpt-4o-mini"
-        client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")
-        )
+    match model_to_ask:
+        case "poe":
+            model = "Grok-4.1"
+            client = OpenAI(
+                api_key=os.getenv("POE_API_KEY"), base_url="https://api.poe.com/v1"
+            )
+        
+        case "deepseek":
+            model = "deepseek-chat"
+            client = OpenAI(
+                api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
+            )
+        case "gpt":
+            model = "gpt-4o-mini"
+            client = OpenAI(
+                api_key=os.getenv("OPENAI_API_KEY")
+            )
 
     system_prompt = """
-    你是孕婦健康及初生嬰兒育兒專家, 以及嬰兒奶粉品牌專家。
-    用戶會提供嬰兒奶粉品牌名稱, 品牌相關關鍵字, 及奶粉品牌相關的 WhatsApp 媽媽群組對話給你, 請判斷用戶提供的文本對提及的品牌情緒是正面(P)、負面(N)、中立(I), 並提供原因。
-    永遠只回答相應的情緒代號: P / N / I
+    你是孕婦健康及初生嬰兒育兒專家、嬰兒奶粉品牌專家, 永遠以JSON格式回應。
+    用戶會提供嬰兒奶粉品牌名稱, 品牌相關關鍵字, 及奶粉品牌相關的 WhatsApp 媽媽群組對話給你, 請判斷用戶提供的文本對提及的品牌情緒是正面(P)、負面(N)、中立(I), 並提供情緒判斷的原因。必須使用以下JSON格式回應:
+    
+    {
+        "sentiment": "sentiment code, either 'P', 'N' or 'I'",
+        "reason": "reason of sentiment within 50 traditional Chinese characters"
+    }
+    
+    Do not include any text outside the JSON object. Strictly adhere to this format.    
     """
     messages: list[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
