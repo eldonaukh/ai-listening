@@ -1,8 +1,8 @@
 import pandas as pd
 import pandera.pandas as pa
-from pandera.typing import DataFrame, Series
+from pandera.typing import DataFrame
 from pathlib import Path
-from typing import NamedTuple, Any, cast, Optional
+from typing import Optional
 
 
 class KeywordSchema(pa.DataFrameModel):
@@ -15,7 +15,6 @@ class KeywordSchema(pa.DataFrameModel):
 
 
 class ChatSchema(pa.DataFrameModel):
-    id: int
     Source: str
     Date1: str
     Date2: str
@@ -28,59 +27,73 @@ class ChatSchema(pa.DataFrameModel):
     MediaCaption: str = pa.Field(nullable=True)
     Reason: str = pa.Field(nullable=True)
 
-def get_keyword_df(base_path: Path, filename: str) -> DataFrame[KeywordSchema]:
 
-    try:
-        keywords = pd.read_excel(base_path / filename).fillna("")
-    except Exception as e:
-        print("Error:", e)
+class DataLoader:
 
-    keywords["headers"] = keywords["brand"].str.cat(keywords["product"], "_")
-    keywords["required_kw"] = ""
-    df = KeywordSchema.validate(keywords)
+    def __init__(self, base_path: Path, keyword_file: str) -> None:
+        self.base_path = base_path
+        self.keyword_file = keyword_file
+        self.chat_path = self.base_path / "chats"
+        self.keyword_path = self.base_path / keyword_file
+        self.chats: list[DataFrame[ChatSchema]] = []
 
-    for idx in df.index:
-        req_prod = str(df.at[idx, "required_product"])
-        df.at[idx, "required_kw"] = get_required_kw(req_prod, df)
-    return df
+    def get_keyword_df(self) -> DataFrame[KeywordSchema]:
 
+        try:
+            keywords = pd.read_excel(self.keyword_path).fillna("")
+        except Exception as e:
+            print("Error:", e)
 
-def get_required_kw(req_prod: str, df: DataFrame[KeywordSchema]):
-    products = [p.strip() for p in req_prod.split(",")]
-    keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
-    return "|".join(keywords)
+        keywords["headers"] = keywords["brand"].str.cat(keywords["product"], "_")
+        keywords["required_kw"] = ""
+        df = KeywordSchema.validate(keywords)
 
+        for idx in df.index:
+            req_prod = str(df.at[idx, "required_product"])
+            df.at[idx, "required_kw"] = self._get_required_kw(req_prod, df)
+        return df
 
-def get_chat_df(path: Path) -> pd.DataFrame | None:
-    files = path.iterdir()
-    df_list = []
-    processed = []
-    for file in files:
+    def _get_required_kw(self, req_prod: str, df: DataFrame[KeywordSchema]):
+        products = [p.strip() for p in req_prod.split(",")]
+        keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
+        return "|".join(keywords)
+
+    def _get_chat_df(self, file: Path) -> DataFrame[ChatSchema] | None:
         try:
             df = pd.read_csv(file)
-            df["Source"] = file.name
-            df_list.append(df)
-            processed.append(file.name)
         except Exception as e:
             print("File path error:", e)
             return None
 
-    combined = pd.concat(df_list, ignore_index=True).reindex(
-        [
-            "Source",
-            "Date1",
-            "Date2",
-            "Time",
-            "UserPhone",
-            "UserName",
-            "QuotedMessage",
-            "MessageBody",
-            "MediaType",
-            "MediaCaption",
-            "Reason",
-        ],
-        axis=1,
-    )
-    validated_df = ChatSchema.validate(combined)
-    print(f"Processed {len(processed)} files in folder.")
-    return validated_df
+        df["Source"] = file.name
+        df = ChatSchema.validate(df)
+        return df
+
+    def get_chat_df_all(self) -> None:
+        files = self.chat_path.iterdir()
+        for file in files:
+            df = self._get_chat_df(file)
+            if df is not None:
+                self.chats.append(df)
+
+    def combine_chat(self) -> DataFrame[ChatSchema] | None:
+        if len(self.chats) == 0:
+            return None
+        combined = pd.concat(self.chats, ignore_index=True).reindex(
+            [
+                "Source",
+                "Date1",
+                "Date2",
+                "Time",
+                "UserPhone",
+                "UserName",
+                "QuotedMessage",
+                "MessageBody",
+                "MediaType",
+                "MediaCaption",
+                "Reason",
+            ],
+            axis=1,
+        )
+        validated_df = ChatSchema.validate(combined)
+        return validated_df
