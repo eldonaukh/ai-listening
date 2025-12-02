@@ -16,15 +16,14 @@ class KeywordSchema(pa.DataFrameModel):
 
 class ChatSchema(pa.DataFrameModel):
     Source: str
-    Date1: str
+    Date1: str = pa.Field(nullable=True)
     Date2: str
     Time: str
-    UserPhone: str
-    UserName: str
-    QuotedMessage: str = pa.Field(nullable=True)
-    MessageBody: str = pa.Field(nullable=True)
-    MediaType: str = pa.Field(nullable=True)
-    MediaCaption: str = pa.Field(nullable=True)
+    userPhone: str = pa.Field(coerce=True)
+    quotedMessage: str = pa.Field(nullable=True)
+    messageBody: str = pa.Field(nullable=True)
+    mediaType: str = pa.Field(nullable=True)
+    mediaCaption: str = pa.Field(nullable=True)
     Reason: str = pa.Field(nullable=True)
 
 
@@ -33,7 +32,6 @@ class DataLoader:
     def __init__(self, base_path: Path, keyword_file: str) -> None:
         self.base_path = base_path
         self.keyword_file = keyword_file
-        self.chat_path = self.base_path / "chats"
         self.keyword_path = self.base_path / keyword_file
         self.chats: list[DataFrame[ChatSchema]] = []
 
@@ -66,11 +64,12 @@ class DataLoader:
             return None
 
         df["Source"] = file.name
+        df["Reason"] = ""
         df = ChatSchema.validate(df)
         return df
 
-    def get_chat_df_all(self) -> None:
-        files = self.chat_path.iterdir()
+    def get_chat_df_folder(self, chat_path: Path) -> None:
+        files = chat_path.iterdir()
         for file in files:
             df = self._get_chat_df(file)
             if df is not None:
@@ -85,12 +84,11 @@ class DataLoader:
                 "Date1",
                 "Date2",
                 "Time",
-                "UserPhone",
-                "UserName",
-                "QuotedMessage",
-                "MessageBody",
-                "MediaType",
-                "MediaCaption",
+                "userPhone",
+                "quotedMessage",
+                "messageBody",
+                "mediaType",
+                "mediaCaption",
                 "Reason",
             ],
             axis=1,
