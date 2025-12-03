@@ -103,23 +103,23 @@ def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]
 
 def main() -> None:
     # get keywords from xlsx    
-    base_path = Path("./files")    
-    dataloader = DataLoader(base_path, "keywords.xlsx")
-    keyword_df = dataloader.get_keyword_df()
+    loader = DataLoader("./files")
+    keyword_df = loader.get_keyword_df("keywords.xlsx")
     sheets: dict[str, pd.DataFrame] = {}
-    # load all csv files in folder into one df
     
-    chat = base_path / "chats"
-    subfolders: list[Path] = [f for f in chat.iterdir() if f.is_dir()]
-    for sub in subfolders:
-        print("Start processing:", sub.name)
-        loader = DataLoader(base_path, "keywords.xlsx")
-        loader.get_chat_df_folder(sub)        
-        df: DataFrame[ChatSchema] | None = loader.combine_chat()
-        if df is not None:
-            processed = process_chat(df=df, keyword_df=keyword_df)
-            print("Processed:", sub.name)
-            sheets[sub.name] = processed
+    # load all csv files in folders into one df
+    dfs = loader.get_chat_dfs("./chats")
+    # chat = base_path / "chats"
+    # subfolders: list[Path] = [f for f in chat.iterdir() if f.is_dir()]
+    # for sub in subfolders:
+    #     print("Start processing:", sub.name)
+    #     loader = DataLoader(base_path, "keywords.xlsx")
+    #     loader.get_chat_df_folder(sub)        
+    #     df: DataFrame[ChatSchema] | None = loader.combine_chat()
+    if df is not None:
+        processed = process_chat(df=df, keyword_df=keyword_df)
+        print("Processed:", sub.name)
+        sheets[sub.name] = processed
 
     # export df into xlsx
     with pd.ExcelWriter("./files/output.xlsx") as writer:
