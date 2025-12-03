@@ -28,7 +28,7 @@ def pass_to_llm(row: pd.Series, header: str, keywords: str) -> pd.Series:
     return row
 
 
-def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]) -> pd.DataFrame:
+def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]) -> DataFrame[ChatSchema]:
     # add keyword cols to df
     headers: list[str] = list(keyword_df["headers"].unique())
     for header in headers:
@@ -105,10 +105,9 @@ def main() -> None:
     # get keywords from xlsx    
     loader = DataLoader("./files")
     keyword_df = loader.get_keyword_df("keywords.xlsx")
-    sheets: dict[str, pd.DataFrame] = {}
     
     # load all csv files in folders into one df
-    dfs = loader.get_chat_dfs("./chats")
+    sheets = loader.get_chat_dfs("./chats")
     # chat = base_path / "chats"
     # subfolders: list[Path] = [f for f in chat.iterdir() if f.is_dir()]
     # for sub in subfolders:
@@ -116,16 +115,15 @@ def main() -> None:
     #     loader = DataLoader(base_path, "keywords.xlsx")
     #     loader.get_chat_df_folder(sub)        
     #     df: DataFrame[ChatSchema] | None = loader.combine_chat()
-    if df is not None:
-        processed = process_chat(df=df, keyword_df=keyword_df)
-        print("Processed:", sub.name)
-        sheets[sub.name] = processed
+    if sheets is not None:
+        for sheet, df in sheets.items():
+            processed = process_chat(df=df, keyword_df=keyword_df)
+            sheets[sheet] = processed
+            print("Processed:", sheet)
 
     # export df into xlsx
-    with pd.ExcelWriter("./files/output.xlsx") as writer:
-        for sheetname, dataframe in sheets.items():
-            dataframe.to_excel(writer, sheet_name=sheetname, index=False)
-            print(f"Sheet: {sheetname} has been added to file.")
+    loader.output_to_xlsx(sheets, filename="output.xlsx")
+
 
 
 if __name__ == "__main__":

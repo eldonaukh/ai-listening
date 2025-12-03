@@ -112,3 +112,11 @@ class DataLoader:
         )
         validated_df = ChatSchema.validate(combined)
         return validated_df
+
+    def output_to_xlsx(self, sheets: dict[str, DataFrame[ChatSchema]], filename: str) -> None:
+        output_path = Path(self.base_path) / filename
+        with pd.ExcelWriter(output_path) as writer:
+            for sheetname, dataframe in sheets.items():
+                dataframe.to_excel(writer, sheet_name=sheetname, index=False)
+                print(f"Sheet: {sheetname} has been added to file.")
+        print("Output of file has been done.")

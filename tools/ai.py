@@ -72,7 +72,7 @@ class SentimentAnalyzer:
             return {"sentiment": "Error", "reason": "JSON Parse Error"}
 
 
-def get_analyzer(provider_name: str, model_name: str):
+def get_analyzer(provider_name: str, model_name: str) -> SentimentAnalyzer:
     provider_name = provider_name.lower().strip()
     match provider_name.lower().strip():
         case "poe":
