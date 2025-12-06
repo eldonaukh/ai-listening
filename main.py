@@ -126,11 +126,14 @@ class ChatProcessor:
     @property
     def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
+    
+    def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
+        return chat_df
 
     def _get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
 
-    def _tag_keywords(self, chat_df: DataFrame[ChatSchema]):
+    def _tag_keywords(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
         for ng in self.non_generic_headers:
             self._apply_mask(chat_df, ng, skip_mask=None)
 
@@ -138,8 +141,9 @@ class ChatProcessor:
             main = g.replace("_generic", "")
             subbrand = [brand for brand in self.non_generic_headers if main in brand]
             skip_mask = chat_df[subbrand].any(axis=1)
-            
+
             self._apply_mask(chat_df, g, skip_mask=skip_mask)
+        return chat_df
 
     def _apply_mask(
         self,
@@ -147,7 +151,7 @@ class ChatProcessor:
         header: str,
         skip_mask: pd.Series[bool] | None,
         message_column: str = "messageBody",
-    ) -> None:
+    ) -> DataFrame[ChatSchema]:
         matched = self._get_keyword_rows_of_header(header)
 
         target = (
@@ -171,6 +175,8 @@ class ChatProcessor:
             ] | final_mask.astype(int)
         else:
             chat_df[header] = chat_df[header] | final_mask.astype(int)
+
+        return chat_df
 
     def _add_header_columns_to_chat_df(self, chat_df: DataFrame[ChatSchema]) -> None:
         for header in self.unique_headers:
