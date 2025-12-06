@@ -118,6 +118,9 @@ class ChatProcessor:
     def non_generic_headers(self):
         return [header for header in self.unique_headers if "generic" not in header]
     
+    def get_keywords_of_header(self, header: str):
+        return self._keyword_df[self._keyword_df["headers"] == header]
+    
 
 
 def main() -> None:
