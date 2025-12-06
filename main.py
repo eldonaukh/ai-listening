@@ -8,7 +8,7 @@ from tqdm import tqdm
 import pandera.pandas as pa
 from pandera.typing import DataFrame, Series
 
-    
+
 class KeywordRow(NamedTuple):
     brand: str
     product: str
@@ -28,7 +28,9 @@ def pass_to_llm(row: pd.Series, header: str, keywords: str) -> pd.Series:
     return row
 
 
-def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]) -> DataFrame[ChatSchema]:
+def process_chat(
+    df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]
+) -> DataFrame[ChatSchema]:
     # add keyword cols to df
     headers: list[str] = list(keyword_df["headers"].unique())
     for header in headers:
@@ -41,7 +43,7 @@ def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]
     # check keywords of non-generic product column
     for header in non_generic:
         matched = keyword_df[keyword_df["headers"] == header]
-        for row in cast(list[KeywordRow], matched.itertuples(index=False)):          
+        for row in cast(list[KeywordRow], matched.itertuples(index=False)):
             if row.required_kw:
                 mask_required = df["messageBody"].str.contains(
                     row.required_kw, case=False, na=False
@@ -100,34 +102,36 @@ def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]
 
     return df
 
+
 class ChatProcessor:
-    
-    def __init__(self, keyword_df: DataFrame[KeywordSchema], chat_df: DataFrame[ChatSchema]):
+
+    def __init__(
+        self, keyword_df: DataFrame[KeywordSchema], chat_df: DataFrame[ChatSchema]
+    ):
         self._keyword_df = keyword_df
         self._chat_df = chat_df
-    
+
     @property
     def unique_headers(self) -> list[str]:
         return list(self._keyword_df["headers"].unique())
-    
+
     @property
     def generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" in header]
-    
+
     @property
     def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
-    
-    def get_keywords_of_header(self, header: str) -> DataFrame[KeywordSchema]:
+
+    def get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
-    
 
 
 def main() -> None:
-    # get keywords from xlsx    
+    # get keywords from xlsx
     loader = DataLoader("./files")
     keyword_df = loader.get_keyword_df("keywords.xlsx")
-    
+
     # load all csv files in folders into one df
     sheets = loader.get_chat_dfs("./chats")
     # chat = base_path / "chats"
@@ -135,7 +139,7 @@ def main() -> None:
     # for sub in subfolders:
     #     print("Start processing:", sub.name)
     #     loader = DataLoader(base_path, "keywords.xlsx")
-    #     loader.get_chat_df_folder(sub)        
+    #     loader.get_chat_df_folder(sub)
     #     df: DataFrame[ChatSchema] | None = loader.combine_chat()
     if sheets is not None:
         for sheet, df in sheets.items():
@@ -145,7 +149,6 @@ def main() -> None:
 
     # export df into xlsx
     loader.output_to_xlsx(sheets, filename="output.xlsx")
-
 
 
 if __name__ == "__main__":
