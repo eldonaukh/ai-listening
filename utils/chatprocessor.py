@@ -90,6 +90,12 @@ class ChatProcessor:
             chat_df[header] = 0
         return chat_df
     
+    def _chat_df_zero_to_string(self, chat_df: DataFrame[ChatSchema]):
+        # turn 0 into empty str
+        for header in self.unique_headers:            
+            chat_df[header] = chat_df[header].astype("object")
+            chat_df.loc[chat_df[header] == 0, header] = ""
+        
     def pass_to_llm(self, row: pd.Series, header: str, keywords: str) -> pd.Series:
         data = (
             f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["messageBody"]}"
