@@ -1,6 +1,4 @@
 import pandera.pandas as pa
-from pandera.typing import DataFrame
-from typing import Optional
 
 
 class KeywordSchemaRaw(pa.DataFrameModel):
@@ -11,8 +9,8 @@ class KeywordSchemaRaw(pa.DataFrameModel):
 
 
 class KeywordSchema(KeywordSchemaRaw):
-    required_kw: Optional[str]
-    headers: Optional[str]
+    required_kw: str = pa.Field(nullable=True)
+    headers: str
 
 
 class ChatSchemaRaw(pa.DataFrameModel):
