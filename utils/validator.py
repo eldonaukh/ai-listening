@@ -1,5 +1,5 @@
 import pandera.pandas as pa
-
+from typing import NamedTuple
 
 class KeywordSchemaRaw(pa.DataFrameModel):
     brand: str
@@ -27,3 +27,11 @@ class ChatSchemaRaw(pa.DataFrameModel):
 class ChatSchema(ChatSchemaRaw):
     Source: str
     Reason: str = pa.Field(nullable=True)
+
+
+class KeywordRow(NamedTuple):
+    brand: str
+    product: str
+    keyword: str
+    required_product: str | None
+    required_kw: str | None
