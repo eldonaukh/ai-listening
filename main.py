@@ -134,29 +134,38 @@ class ChatProcessor:
     def get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
 
-    def get_mask(
+    def apply_mask(
         self,
-        row: KeywordRow,
-        mask_skip: Optional[Series[bool]],
-        column_header: str = "messageBody",
-    ) -> Series[bool]:
-        indexer = ~mask_skip if mask_skip is not None else slice(None)
-        mask_keyword = self.chat_df.loc[indexer, column_header].str.contains(
-            row.keyword, case=False, na=False
+        header: str,
+        skip_mask: Series[bool] | None,
+        message_column: str = "messageBody",
+    ) -> None:
+        matched = self.get_keyword_rows_of_header(header)
+        target = (
+            self.chat_df[message_column]
+            if skip_mask is None
+            else self.chat_df.loc[~skip_mask, message_column]
         )
-        if row.required_kw:
-            mask_required = self.chat_df.loc[indexer, column_header].str.contains(
-                row.required_kw, case=False, na=False
-            )
-            return mask_required & mask_keyword
+        for row in cast(list[KeywordRow], matched.itertuples(index=False)):
+            mask_keyword = target.str.contains(row.keyword, case=False, na=False)
+            if row.required_kw:
+                mask_required = target.str.contains(
+                    row.required_kw, case=False, na=False
+                )
+                final_mask = mask_required & mask_keyword
+            else:
+                final_mask = mask_keyword
+        
+        if skip_mask:
+            self.chat_df[~skip_mask, header] = self.chat_df.loc[
+                    ~skip_mask, header
+                ] | final_mask.astype(int)
+        else:
+            self.chat_df[header] = self.chat_df[header] | final_mask.astype(int)
 
-        return mask_keyword
-
-    def add_header_columns_to_chat_df(self):
-        df = self.chat_df.copy()
-        for header in self.unique_headers():
-            df[header] = 0
-        return df
+    def add_header_columns_to_chat_df(self) -> None:
+        for header in self.unique_headers:
+            self.chat_df[header] = 0
 
 
 def main() -> None:
