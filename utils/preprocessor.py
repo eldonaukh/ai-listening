@@ -16,7 +16,7 @@ class Preprocessor:
         df = DataLoader.xlsx_to_df(keyword_path)
         if df is not None:
             try:
-                keywords = KeywordSchemaRaw.validate(df)
+                keywords = KeywordSchemaRaw.validate(df.fillna(""))
             except Exception as e:
                 print("Error:", e)
                 return None
@@ -79,7 +79,7 @@ class Preprocessor:
     def get_chat_df(file_path: Path) -> DataFrame[ChatSchema] | None:
         df = DataLoader.csv_to_df(file_path)
         if df is not None:
-            chat = ChatSchemaRaw.validate(df)
+            chat = ChatSchemaRaw.validate(df.fillna(""))
 
         if chat is not None:
             chat["Source"] = file_path.name
