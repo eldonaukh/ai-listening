@@ -14,6 +14,13 @@ class KeywordSchema(pa.DataFrameModel):
     headers: Optional[str]
 
 
+class KeywordSchemaRaw(pa.DataFrameModel):
+    brand: str
+    product: str
+    keyword: str
+    required_product: str = pa.Field(nullable=True)
+
+
 class ChatSchema(pa.DataFrameModel):
     Source: str
     Date1: str = pa.Field(nullable=True)
@@ -112,7 +119,9 @@ class DataLoader:
         validated_df = ChatSchema.validate(combined)
         return validated_df
 
-    def output_to_xlsx(self, sheets: dict[str, DataFrame[ChatSchema]], filename: str) -> None:
+    def output_to_xlsx(
+        self, sheets: dict[str, DataFrame[ChatSchema]], filename: str
+    ) -> None:
         output_path = Path(self.base_path) / filename
         with pd.ExcelWriter(output_path) as writer:
             for sheetname, dataframe in sheets.items():
