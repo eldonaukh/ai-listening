@@ -133,14 +133,23 @@ class ChatProcessor:
 
     def get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
+    
+    def _tag_keywords(self):
+        for ng in self.non_generic_headers:
+            self._apply_mask(ng, skip_mask=None)
+        
+        for g in self.generic_headers:
+            main = g.replace("_generic", "")
+            subbrand = [brand for brand in self.non_generic_headers if main in brand]
 
-    def apply_mask(
+    def _apply_mask(
         self,
         header: str,
         skip_mask: Series[bool] | None,
         message_column: str = "messageBody",
     ) -> None:
         matched = self.get_keyword_rows_of_header(header)
+
         target = (
             self.chat_df[message_column]
             if skip_mask is None
@@ -155,11 +164,11 @@ class ChatProcessor:
                 final_mask = mask_required & mask_keyword
             else:
                 final_mask = mask_keyword
-        
+
         if skip_mask:
             self.chat_df[~skip_mask, header] = self.chat_df.loc[
-                    ~skip_mask, header
-                ] | final_mask.astype(int)
+                ~skip_mask, header
+            ] | final_mask.astype(int)
         else:
             self.chat_df[header] = self.chat_df[header] | final_mask.astype(int)
 
