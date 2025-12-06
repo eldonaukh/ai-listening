@@ -90,12 +90,12 @@ class ChatProcessor:
             chat_df[header] = 0
         return chat_df
     
-    def _chat_df_zero_to_string(self, chat_df: DataFrame[ChatSchema]):
+    def _chat_df_zero_to_string(self, chat_df: DataFrame[ChatSchema], header: str):
         # turn 0 into empty str
         for header in self.unique_headers:            
             chat_df[header] = chat_df[header].astype("object")
             chat_df.loc[chat_df[header] == 0, header] = ""
-        
+    
     def pass_to_llm(self, row: pd.Series, header: str, keywords: str) -> pd.Series:
         data = (
             f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["messageBody"]}"
@@ -104,3 +104,14 @@ class ChatProcessor:
         row[header] = response["sentiment"]
         row["Reason"] = response["reason"]
         return row
+    
+    def _pass_keywords_to_prompt(self, header: str) -> str:
+        keywords: list[str] = []
+        matched = self._get_keyword_rows_of_header(header)
+        
+        for row in cast(list[KeywordRow], matched.itertuples(index=False)):
+            if row.required_kw:
+                keywords.extend(row.required_kw.split("|"))
+            keywords.append(row.keyword)
+        
+        return ", ".join(set(keywords))
