@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from tools.ai import get_analyzer, SentimentAnalyzer
 from tools.dataloader import KeywordSchema, ChatSchema, DataLoader
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple, cast, Optional
 from tqdm import tqdm
 import pandera.pandas as pa
 from pandera.typing import DataFrame, Series
@@ -110,6 +110,14 @@ class ChatProcessor:
     ):
         self._keyword_df = keyword_df
         self._chat_df = chat_df
+
+    @property
+    def keyword_df(self):
+        return self._keyword_df
+
+    @property
+    def chat_df(self):
+        return self._chat_df
 
     @property
     def unique_headers(self) -> list[str]:
