@@ -33,9 +33,8 @@ class DataLoader:
         self.base_path = Path(base_path)
         self.chats: list[DataFrame[ChatSchema]] = []
 
-    @classmethod
-    def get_keyword_df(cls, keyword_file: str) -> DataFrame[KeywordSchema]:
-        keyword_path = Path(keyword_file)
+    def get_keyword_df(self, keyword_file: str) -> DataFrame[KeywordSchema]:
+        keyword_path = self.base_path / keyword_file
         try:
             keywords = pd.read_excel(keyword_path).fillna("")
         except Exception as e:
@@ -47,7 +46,7 @@ class DataLoader:
 
         for idx in df.index:
             req_prod = str(df.at[idx, "required_product"])
-            df.at[idx, "required_kw"] = cls._get_required_kw(req_prod, df)
+            df.at[idx, "required_kw"] = DataLoader._get_required_kw(req_prod, df)
         return df
 
     @staticmethod
