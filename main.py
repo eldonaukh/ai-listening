@@ -106,18 +106,14 @@ def process_chat(
 class ChatProcessor:
 
     def __init__(
-        self, keyword_df: DataFrame[KeywordSchema], chat_df: DataFrame[ChatSchema]
+        self, keyword_df: DataFrame[KeywordSchema], analyzer: SentimentAnalyzer
     ):
         self._keyword_df = keyword_df
-        self._chat_df = chat_df
+        self._analyzer = analyzer
 
     @property
     def keyword_df(self):
         return self._keyword_df
-
-    @property
-    def chat_df(self):
-        return self._chat_df
 
     @property
     def unique_headers(self) -> list[str]:
@@ -131,29 +127,33 @@ class ChatProcessor:
     def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
 
-    def get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
+    def _get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
-    
-    def _tag_keywords(self):
+
+    def _tag_keywords(self, chat_df: DataFrame[ChatSchema]):
         for ng in self.non_generic_headers:
-            self._apply_mask(ng, skip_mask=None)
-        
+            self._apply_mask(chat_df, ng, skip_mask=None)
+
         for g in self.generic_headers:
             main = g.replace("_generic", "")
             subbrand = [brand for brand in self.non_generic_headers if main in brand]
+            skip_mask = chat_df[subbrand].any(axis=1)
+            
+            self._apply_mask(chat_df, g, skip_mask=skip_mask)
 
     def _apply_mask(
         self,
+        chat_df: DataFrame[ChatSchema],
         header: str,
-        skip_mask: Series[bool] | None,
+        skip_mask: pd.Series[bool] | None,
         message_column: str = "messageBody",
     ) -> None:
-        matched = self.get_keyword_rows_of_header(header)
+        matched = self._get_keyword_rows_of_header(header)
 
         target = (
-            self.chat_df[message_column]
+            chat_df[message_column]
             if skip_mask is None
-            else self.chat_df.loc[~skip_mask, message_column]
+            else chat_df.loc[~skip_mask, message_column]
         )
         for row in cast(list[KeywordRow], matched.itertuples(index=False)):
             mask_keyword = target.str.contains(row.keyword, case=False, na=False)
@@ -166,15 +166,15 @@ class ChatProcessor:
                 final_mask = mask_keyword
 
         if skip_mask:
-            self.chat_df[~skip_mask, header] = self.chat_df.loc[
+            chat_df[~skip_mask, header] = chat_df.loc[
                 ~skip_mask, header
             ] | final_mask.astype(int)
         else:
-            self.chat_df[header] = self.chat_df[header] | final_mask.astype(int)
+            chat_df[header] = chat_df[header] | final_mask.astype(int)
 
-    def add_header_columns_to_chat_df(self) -> None:
+    def _add_header_columns_to_chat_df(self, chat_df: DataFrame[ChatSchema]) -> None:
         for header in self.unique_headers:
-            self.chat_df[header] = 0
+            chat_df[header] = 0
 
 
 def main() -> None:
