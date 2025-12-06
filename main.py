@@ -100,6 +100,25 @@ def process_chat(df: DataFrame[ChatSchema], keyword_df: DataFrame[KeywordSchema]
 
     return df
 
+class ChatProcessor:
+    
+    def __init__(self, keyword_df: DataFrame[KeywordSchema], chat_df: DataFrame[ChatSchema]):
+        self._keyword_df = keyword_df
+        self._chat_df = chat_df
+    
+    @property
+    def unique_headers(self):
+        return list(self._keyword_df["headers"].unique())
+    
+    @property
+    def generic_headers(self):
+        return [header for header in self.unique_headers if "generic" in header]
+    
+    @property
+    def non_generic_headers(self):
+        return [header for header in self.unique_headers if "generic" not in header]
+    
+
 
 def main() -> None:
     # get keywords from xlsx    
