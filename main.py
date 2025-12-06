@@ -152,7 +152,7 @@ class ChatProcessor:
         self,
         chat_df: DataFrame[ChatSchema],
         header: str,
-        skip_mask: pd.Series[bool] | None,
+        skip_mask: pd.Series | None,
         message_column: str = "messageBody",
     ) -> DataFrame[ChatSchema]:
         matched = self._get_keyword_rows_of_header(header)
@@ -172,7 +172,7 @@ class ChatProcessor:
             else:
                 final_mask = mask_keyword
 
-        if skip_mask:
+        if skip_mask is not None:
             chat_df[~skip_mask, header] = chat_df.loc[
                 ~skip_mask, header
             ] | final_mask.astype(int)
