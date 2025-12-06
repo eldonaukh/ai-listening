@@ -149,8 +149,14 @@ class ChatProcessor:
                 row.required_kw, case=False, na=False
             )
             return mask_required & mask_keyword
-        
+
         return mask_keyword
+
+    def add_header_columns_to_chat_df(self):
+        df = self.chat_df.copy()
+        for header in self.unique_headers():
+            df[header] = 0
+        return df
 
 
 def main() -> None:
