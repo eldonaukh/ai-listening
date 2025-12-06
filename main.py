@@ -107,18 +107,18 @@ class ChatProcessor:
         self._chat_df = chat_df
     
     @property
-    def unique_headers(self):
+    def unique_headers(self) -> list[str]:
         return list(self._keyword_df["headers"].unique())
     
     @property
-    def generic_headers(self):
+    def generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" in header]
     
     @property
-    def non_generic_headers(self):
+    def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
     
-    def get_keywords_of_header(self, header: str):
+    def get_keywords_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
     
 
