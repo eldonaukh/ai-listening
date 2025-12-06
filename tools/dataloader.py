@@ -30,7 +30,7 @@ class ChatSchema(pa.DataFrameModel):
 class DataLoader:
 
     def __init__(self, base_path: str) -> None:
-        self.base_path = base_path
+        self.base_path = Path(base_path)
         self.chats: list[DataFrame[ChatSchema]] = []
 
     @classmethod
