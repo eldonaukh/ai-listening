@@ -133,6 +133,14 @@ class ChatProcessor:
 
     def get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
+    
+    def get_mask(self, row: KeywordRow, mask_skip: Optional[Series[bool]], column_header: str = "messageBody"):
+        indexer = ~mask_skip if mask_skip is not None else slice(None)
+        
+        mask = self._chat_df.loc[indexer, column_header]
+        
+        if row.required_kw:
+            pass
 
 
 def main() -> None:
