@@ -2,14 +2,6 @@ import pandera.pandas as pa
 from pandera.typing import DataFrame
 from typing import Optional
 
-class KeywordSchema(pa.DataFrameModel):
-    brand: str
-    product: str
-    keyword: str
-    required_product: str = pa.Field(nullable=True)
-    required_kw: Optional[str]
-    headers: Optional[str]
-
 
 class KeywordSchemaRaw(pa.DataFrameModel):
     brand: str
@@ -18,8 +10,12 @@ class KeywordSchemaRaw(pa.DataFrameModel):
     required_product: str = pa.Field(nullable=True)
 
 
-class ChatSchema(pa.DataFrameModel):
-    Source: str
+class KeywordSchema(KeywordSchemaRaw):
+    required_kw: Optional[str]
+    headers: Optional[str]
+
+
+class ChatSchemaRaw(pa.DataFrameModel):
     Date1: str = pa.Field(nullable=True)
     Date2: str
     Time: str
@@ -28,4 +24,8 @@ class ChatSchema(pa.DataFrameModel):
     messageBody: str = pa.Field(nullable=True)
     mediaType: str = pa.Field(nullable=True)
     mediaCaption: str = pa.Field(nullable=True)
+
+
+class ChatSchema(ChatSchemaRaw):
+    Source: str
     Reason: str = pa.Field(nullable=True)
