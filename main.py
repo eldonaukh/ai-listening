@@ -126,9 +126,12 @@ class ChatProcessor:
     @property
     def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
-    
+
     def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
-        return chat_df
+        df = self._add_header_columns_to_chat_df(chat_df)
+        df = self._tag_keywords(df)
+
+        return df
 
     def _get_keyword_rows_of_header(self, header: str) -> DataFrame[KeywordSchema]:
         return self._keyword_df[self._keyword_df["headers"] == header]
@@ -178,9 +181,12 @@ class ChatProcessor:
 
         return chat_df
 
-    def _add_header_columns_to_chat_df(self, chat_df: DataFrame[ChatSchema]) -> None:
+    def _add_header_columns_to_chat_df(
+        self, chat_df: DataFrame[ChatSchema]
+    ) -> DataFrame[ChatSchema]:
         for header in self.unique_headers:
             chat_df[header] = 0
+        return chat_df
 
 
 def main() -> None:
