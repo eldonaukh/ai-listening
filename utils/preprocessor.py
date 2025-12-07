@@ -1,8 +1,8 @@
 from pathlib import Path
 import pandera as pa
 from pandera.typing import DataFrame
-from validator import KeywordSchemaRaw, KeywordSchema, ChatSchemaRaw, ChatSchema
-from loader import DataLoader
+from utils.validator import KeywordSchemaRaw, KeywordSchema, ChatSchemaRaw, ChatSchema
+from utils.loader import DataLoader
 import pandas as pd
 
 
@@ -50,6 +50,7 @@ class Preprocessor:
                 df = Preprocessor._combine_chat(dataframes).reindex(
             [
                 "Source",
+                "Group",
                 "Date1",
                 "Date2",
                 "Time",
