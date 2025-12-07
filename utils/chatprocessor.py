@@ -1,6 +1,6 @@
 import pandas as pd
 from utils.ai import SentimentAnalyzer
-from utils.validator import KeywordSchema, ChatSchema, KeywordRow
+from utils.validator import KeywordSchema, ChatSchema, KeywordRow, ChatRow
 from typing import cast
 from pandera.typing import DataFrame
 import json
@@ -33,7 +33,7 @@ class ChatProcessor:
     def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
         df = self._add_header_columns_to_chat_df(chat_df)
         df = self._tag_keywords(df)
-        self.add_keywords_for_system_prompt()
+        self._add_keywords_for_system_prompt()
         df = self._check_sentiment(df)
 
         return df
@@ -104,16 +104,21 @@ class ChatProcessor:
     def _check_sentiment(self, chat_df: DataFrame[ChatSchema]):
         for header in self.unique_headers:
             df = self._chat_df_zero_to_string(chat_df, header)
-            keywords = self._get_keywords_for_prompt(header)
+            # keywords = self._get_keywords_for_prompt(header)
 
             mask = df[header] == 1
 
             if mask.any():
-                print(df[mask].to_dict(orient="index"))
-
+                for row in cast(list[ChatRow], df[mask].itertuples()):
+                    data = f"Formula Brand: {header}, Message: {row.messageBody}"
+                    response = self.analyzer.analyze(data)
+                    df.loc[row.Index, header] = response["sentiment"]
+                    df.loc[row.Index, "Reason"] = (
+                        header + ": " + response["reason"] + "\n"
+                    )
         return df
 
-    def _pass_to_llm(self, row: pd.Series, header: str) -> pd.Series:
+    def _pass_to_llm_apply(self, row: pd.Series, header: str) -> pd.Series:
         data = f"Formula Brand: {header}, Message: {row["messageBody"]}"
         response = self.analyzer.analyze(data)
         row[header] = response["sentiment"]
@@ -131,7 +136,7 @@ class ChatProcessor:
 
         return ", ".join(set(keywords))
 
-    def add_keywords_for_system_prompt(self) -> None:
+    def _add_keywords_for_system_prompt(self) -> None:
         keyword_dict = self.keyword_df.to_dict(orient="records")
         self.analyzer.system_prompt_insert_keywords(json.dumps(keyword_dict))
 
