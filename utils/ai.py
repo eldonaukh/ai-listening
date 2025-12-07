@@ -91,14 +91,14 @@ class SentimentAnalyzer:
    - **P (正面)：** 讚賞、推薦、有意購買、提及正面健康效果（如：長肉、大便靚），或命中正面關鍵字。
    - **N (負面)：** 投訴、副作用（如：便秘、熱氣、敏感）、價格過高、拒絕購買，或命中負面關鍵字。
    - **I (中立)：** 一般查詢（如：哪裡買？）、事實陳述、情緒好壞參半、提及品牌但無主觀評價。
-4. **輸出格式：** 僅回傳一個原始 JSON 物件。不要使用 Markdown 格式（如 ```json）。
+4. **輸出格式：** 僅回傳一個原始 JSON 物件。嚴格遵守下方輸出 JSON 結構，不可有任何格式以外文字。
 5. **語言：** JSON 中的 `reason` 欄位必須使用繁體中文。
 
-### JSON 結構
-{
-    "sentiment": "P" 或 "N", 或 "I"
+### 輸出 JSON 結構
+{{
+    "sentiment": "P", 或 "N", 或 "I"
     "reason": "在此輸入50字以內的繁體中文解釋，說明判斷原因（若有命中關鍵字請提及）"
-}
+}}
         """
         self.system_prompt = updated_prompt
 
@@ -113,7 +113,7 @@ class SentimentAnalyzer:
         try:
             return json.loads(response_str)
         except json.JSONDecodeError:
-            print("Failed to parse JSON response from AI")
+            print("Failed to parse JSON response from AI:", response_str)
             return {"sentiment": "Error", "reason": "JSON Parse Error"}
 
 
