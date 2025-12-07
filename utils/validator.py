@@ -13,7 +13,7 @@ class KeywordSchema(KeywordSchemaRaw):
     headers: str
 
 
-class ChatSchemaRaw(pa.DataFrameModel):
+class ChatSchemaRaw(pa.DataFrameModel):    
     Date1: str = pa.Field(nullable=True)
     Date2: str
     Time: str
@@ -26,6 +26,7 @@ class ChatSchemaRaw(pa.DataFrameModel):
 
 class ChatSchema(ChatSchemaRaw):
     Source: str
+    Group: str = pa.Field(nullable=True)
     Reason: str = pa.Field(nullable=True)
 
 
