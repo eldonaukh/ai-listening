@@ -125,3 +125,10 @@ class ChatProcessor:
             keywords.append(row.keyword)
         
         return ", ".join(set(keywords))
+    
+    def save_result(self, dataframes: dict[str, DataFrame[ChatSchema]], output_path: str):
+        with pd.ExcelWriter(output_path) as writer:
+            for sheetname, dataframe in dataframes.items():
+                dataframe.to_excel(writer, sheet_name=sheetname, index=False)
+                print(f"Sheet: {sheetname} has been added to file.")
+        print("Output of file has been done.")
