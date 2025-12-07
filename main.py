@@ -105,12 +105,11 @@ def main() -> None:
         c = ChatProcessor(keyword_df=keyword, analyzer=a)
         print(c.keyword_df.to_dict(orient="records"))
 
-        # for sheet, chat in chats.items():
-        #     df = c.process_chat_df(chat)
-        #     # print(df)
-        #     chats[sheet] = df
+        for sheet, chat in chats.items():
+            df = c.process_chat_df(chat)
+            chats[sheet] = df
 
-        # c.save_result(chats, "./data/output.xlsx")
+        c.save_result(chats, "./data/output.xlsx")
 
 
 if __name__ == "__main__":
