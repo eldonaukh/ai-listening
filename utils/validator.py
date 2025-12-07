@@ -36,3 +36,17 @@ class KeywordRow(NamedTuple):
     keyword: str
     required_product: str | None
     required_keyword: str | None
+
+class ChatRow(NamedTuple):
+    Index: str
+    Source: str
+    Group: str | None
+    Date1: str
+    Date2: str
+    Time: str
+    userPhone: str
+    quotedMessage: str
+    messageBody: str
+    mediaType: str
+    mediaCaption: str
+    Reason: str
