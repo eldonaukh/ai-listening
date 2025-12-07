@@ -3,6 +3,7 @@ from utils.ai import SentimentAnalyzer
 from utils.validator import KeywordSchema, ChatSchema, KeywordRow
 from typing import cast
 from pandera.typing import DataFrame
+import json
 
 
 class ChatProcessor:
@@ -32,6 +33,7 @@ class ChatProcessor:
     def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
         df = self._add_header_columns_to_chat_df(chat_df)
         df = self._tag_keywords(df)
+        self.add_keywords_for_system_prompt()
         df = self._check_sentiment(df)
 
         return df
@@ -111,11 +113,11 @@ class ChatProcessor:
 
         return df
 
-    def _pass_to_llm(self, row: pd.Series, header: str, keywords: str) -> pd.Series:
-        data = f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["messageBody"]}"
+    def _pass_to_llm(self, row: pd.Series, header: str) -> pd.Series:
+        data = f"Formula Brand: {header}, Message: {row["messageBody"]}"
         response = self.analyzer.analyze(data)
         row[header] = response["sentiment"]
-        row["Reason"] = response["reason"]
+        row["Reason"] = header + ": " + response["reason"] + "\n"
         return row
 
     def _get_keywords_for_prompt(self, header: str) -> str:
@@ -129,17 +131,9 @@ class ChatProcessor:
 
         return ", ".join(set(keywords))
 
-    # def keywords_for_system_prompt(self) -> list[dict[str, str] | None]:
-    #     keyword_dict = self.keyword_df.to_dict(orient="records")
-
-    #     # validated_dict: list[dict[str, str] | None] = []
-
-    #     # for d in keyword_dict:
-    #     #     for key, value in d.items():
-    #     #         if isinstance(key, str) and isinstance(value, str):
-    #     #             validated_dict.append({key: value})
-
-    #     return validated_dict
+    def add_keywords_for_system_prompt(self) -> None:
+        keyword_dict = self.keyword_df.to_dict(orient="records")
+        self.analyzer.system_prompt_insert_keywords(json.dumps(keyword_dict))
 
     def save_result(
         self, dataframes: dict[str, DataFrame[ChatSchema]], output_path: str
