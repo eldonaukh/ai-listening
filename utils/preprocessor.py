@@ -84,6 +84,7 @@ class Preprocessor:
 
         if chat is not None:
             chat["Source"] = file_path.name
+            chat["Group"] = ""
             chat["Reason"] = ""
             validated_chat = ChatSchema.validate(chat)
             return validated_chat
