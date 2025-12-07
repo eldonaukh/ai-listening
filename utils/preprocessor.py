@@ -20,7 +20,7 @@ class Preprocessor:
             except Exception as e:
                 print("Error:", e)
                 return None
-        
+
         if keywords is not None:
             keywords["headers"] = keywords["brand"].str.cat(keywords["product"], "_")
             keywords["required_keyword"] = ""
@@ -28,9 +28,11 @@ class Preprocessor:
 
             for idx in validated_keywords.index:
                 req_prod = str(validated_keywords.at[idx, "required_product"])
-                validated_keywords.at[idx, "required_keyword"] = Preprocessor._get_required_keyword(req_prod, validated_keywords)
+                validated_keywords.at[idx, "required_keyword"] = (
+                    Preprocessor._get_required_keyword(req_prod, validated_keywords)
+                )
             return validated_keywords
-        
+
         return None
 
     @staticmethod
@@ -48,21 +50,21 @@ class Preprocessor:
             dataframes = Preprocessor._get_chat_df_folder(sub)
             if dataframes:
                 df = Preprocessor._combine_chat(dataframes).reindex(
-            [
-                "Source",
-                "Group",
-                "Date1",
-                "Date2",
-                "Time",
-                "userPhone",
-                "quotedMessage",
-                "messageBody",
-                "mediaType",
-                "mediaCaption",
-                "Reason",
-            ],
-            axis=1,
-        )
+                    [
+                        "Source",
+                        "Group",
+                        "Date1",
+                        "Date2",
+                        "Time",
+                        "userPhone",
+                        "quotedMessage",
+                        "messageBody",
+                        "mediaType",
+                        "mediaCaption",
+                        "Reason",
+                    ],
+                    axis=1,
+                )
                 sheets[sub.name] = df
         return sheets
 
