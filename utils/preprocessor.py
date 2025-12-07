@@ -28,7 +28,7 @@ class Preprocessor:
 
             for idx in validated_keywords.index:
                 req_prod = str(validated_keywords.at[idx, "required_product"])
-                keywords.at[idx, "required_kw"] = Preprocessor._get_required_kw(req_prod, validated_keywords)
+                validated_keywords.at[idx, "required_kw"] = Preprocessor._get_required_kw(req_prod, validated_keywords)
             return validated_keywords
         
         return None
