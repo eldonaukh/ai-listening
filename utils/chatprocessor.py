@@ -32,6 +32,7 @@ class ChatProcessor:
     def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
         df = self._add_header_columns_to_chat_df(chat_df)
         df = self._tag_keywords(df)
+        df = self._check_sentiment(df)
 
         return df
 
@@ -66,9 +67,9 @@ class ChatProcessor:
         )
         for row in cast(list[KeywordRow], matched.itertuples(index=False)):
             mask_keyword = target.str.contains(row.keyword, case=False, na=False)
-            if row.required_kw:
+            if row.required_keyword:
                 mask_required = target.str.contains(
-                    row.required_kw, case=False, na=False
+                    row.required_keyword, case=False, na=False
                 )
                 final_mask = mask_required & mask_keyword
             else:
@@ -89,44 +90,60 @@ class ChatProcessor:
         for header in self.unique_headers:
             chat_df[header] = 0
         return chat_df
-    
-    def _chat_df_zero_to_string(self, chat_df: DataFrame[ChatSchema], header: str) -> DataFrame[ChatSchema]:
-        # turn 0 into empty str          
+
+    def _chat_df_zero_to_string(
+        self, chat_df: DataFrame[ChatSchema], header: str
+    ) -> DataFrame[ChatSchema]:
+        # turn 0 into empty str
         chat_df[header] = chat_df[header].astype("object")
         chat_df.loc[chat_df[header] == 0, header] = ""
         return chat_df
-    
+
     def _check_sentiment(self, chat_df: DataFrame[ChatSchema]):
         for header in self.unique_headers:
             df = self._chat_df_zero_to_string(chat_df, header)
             keywords = self._get_keywords_for_prompt(header)
-            
+
             mask = df[header] == 1
-            
+
             if mask.any():
-                pass
-    
+                print(df[mask].to_dict(orient="index"))
+
+        return df
+
     def _pass_to_llm(self, row: pd.Series, header: str, keywords: str) -> pd.Series:
-        data = (
-            f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["messageBody"]}"
-        )
+        data = f"Formula Brand: {header}, Keyword: {keywords}, Message: {row["messageBody"]}"
         response = self.analyzer.analyze(data)
         row[header] = response["sentiment"]
         row["Reason"] = response["reason"]
         return row
-    
+
     def _get_keywords_for_prompt(self, header: str) -> str:
         keywords: list[str] = []
         matched = self._get_keyword_rows_of_header(header)
-        
+
         for row in cast(list[KeywordRow], matched.itertuples(index=False)):
-            if row.required_kw:
-                keywords.extend(row.required_kw.split("|"))
+            if row.required_keyword:
+                keywords.extend(row.required_keyword.split("|"))
             keywords.append(row.keyword)
-        
+
         return ", ".join(set(keywords))
-    
-    def save_result(self, dataframes: dict[str, DataFrame[ChatSchema]], output_path: str):
+
+    # def keywords_for_system_prompt(self) -> list[dict[str, str] | None]:
+    #     keyword_dict = self.keyword_df.to_dict(orient="records")
+
+    #     # validated_dict: list[dict[str, str] | None] = []
+
+    #     # for d in keyword_dict:
+    #     #     for key, value in d.items():
+    #     #         if isinstance(key, str) and isinstance(value, str):
+    #     #             validated_dict.append({key: value})
+
+    #     return validated_dict
+
+    def save_result(
+        self, dataframes: dict[str, DataFrame[ChatSchema]], output_path: str
+    ):
         with pd.ExcelWriter(output_path) as writer:
             for sheetname, dataframe in dataframes.items():
                 dataframe.to_excel(writer, sheet_name=sheetname, index=False)

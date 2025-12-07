@@ -1,6 +1,9 @@
 import pandas as pd
 from utils.ai import get_analyzer
 from utils.validator import KeywordSchema, ChatSchema, KeywordRow
+from utils.preprocessor import Preprocessor
+from utils.chatprocessor import ChatProcessor
+from utils.loader import DataLoader
 from typing import Any, cast
 from pandera.typing import DataFrame
 
@@ -32,9 +35,9 @@ def process_chat(
     for header in non_generic:
         matched = keyword_df[keyword_df["headers"] == header]
         for row in cast(list[KeywordRow], matched.itertuples(index=False)):
-            if row.required_kw:
+            if row.required_keyword:
                 mask_required = df["messageBody"].str.contains(
-                    row.required_kw, case=False, na=False
+                    row.required_keyword, case=False, na=False
                 )
                 mask_keyword = df["messageBody"].str.contains(
                     row.keyword, case=False, na=False
@@ -52,9 +55,9 @@ def process_chat(
         mask_skip = df[subbrand].any(axis=1)
         matched = keyword_df[keyword_df["headers"] == header]
         for row in cast(list[KeywordRow], matched.itertuples(index=False)):
-            if row.required_kw:
+            if row.required_keyword:
                 mask_required = df.loc[~mask_skip, "messageBody"].str.contains(
-                    row.required_kw, case=False, na=False
+                    row.required_keyword, case=False, na=False
                 )
                 mask_keyword = df.loc[~mask_skip, "messageBody"].str.contains(
                     row.keyword, case=False, na=False
@@ -76,7 +79,7 @@ def process_chat(
         keywords: list[str] = []
         matched = keyword_df[keyword_df["headers"] == header]
         for kw_row in matched.itertuples():
-            row_req_kw: Any = kw_row.required_kw
+            row_req_kw: Any = kw_row.required_keyword
             if row_req_kw:
                 keywords.extend(row_req_kw.split("|"))
             row_kw: Any = kw_row.keyword
@@ -92,21 +95,22 @@ def process_chat(
 
 
 def main() -> None:
-    pass
-    # get keywords from xlsx
-    # loader = DataLoader("./files")
-    # keyword_df = loader.get_keyword_df("keywords.xlsx")
+    p = Preprocessor("./data")
+    chats = p.get_chat_df_dict("chats")
+    keyword = p.get_keyword_df("keywords.xlsx")
+    # print(chats)
+    # print(keyword)
+    a = get_analyzer("poe", "gemini-2.5-flash")
+    if keyword is not None:
+        c = ChatProcessor(keyword_df=keyword, analyzer=a)
+        print(c.keyword_df.to_dict(orient="records"))
 
-    # # load all csv files in folders into one df
-    # sheets = loader.get_chat_dfs("./chats")
-    # if sheets is not None:
-    #     for sheet, df in sheets.items():
-    #         processed = process_chat(df=df, keyword_df=keyword_df)
-    #         sheets[sheet] = processed
-    #         print("Processed:", sheet)
+        # for sheet, chat in chats.items():
+        #     df = c.process_chat_df(chat)
+        #     # print(df)
+        #     chats[sheet] = df
 
-    # # export df into xlsx
-    # loader.output_to_xlsx(sheets, filename="output.xlsx")
+        # c.save_result(chats, "./data/output.xlsx")
 
 
 if __name__ == "__main__":

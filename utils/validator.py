@@ -9,7 +9,7 @@ class KeywordSchemaRaw(pa.DataFrameModel):
 
 
 class KeywordSchema(KeywordSchemaRaw):
-    required_kw: str = pa.Field(nullable=True)
+    required_keyword: str = pa.Field(nullable=True)
     headers: str
 
 
@@ -35,4 +35,4 @@ class KeywordRow(NamedTuple):
     product: str
     keyword: str
     required_product: str | None
-    required_kw: str | None
+    required_keyword: str | None

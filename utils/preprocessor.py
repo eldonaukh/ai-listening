@@ -23,18 +23,18 @@ class Preprocessor:
         
         if keywords is not None:
             keywords["headers"] = keywords["brand"].str.cat(keywords["product"], "_")
-            keywords["required_kw"] = ""
+            keywords["required_keyword"] = ""
             validated_keywords = KeywordSchema.validate(keywords)
 
             for idx in validated_keywords.index:
                 req_prod = str(validated_keywords.at[idx, "required_product"])
-                validated_keywords.at[idx, "required_kw"] = Preprocessor._get_required_kw(req_prod, validated_keywords)
+                validated_keywords.at[idx, "required_keyword"] = Preprocessor._get_required_keyword(req_prod, validated_keywords)
             return validated_keywords
         
         return None
 
     @staticmethod
-    def _get_required_kw(req_prod: str, df: DataFrame[KeywordSchema]) -> str:
+    def _get_required_keyword(req_prod: str, df: DataFrame[KeywordSchema]) -> str:
         products = [p.strip() for p in req_prod.split(",")]
         keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
         return "|".join(keywords)
