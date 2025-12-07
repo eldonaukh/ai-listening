@@ -4,6 +4,7 @@ from utils.validator import KeywordSchema, ChatSchema, KeywordRow, ChatRow
 from typing import cast
 from pandera.typing import DataFrame
 import json
+from tqdm import tqdm
 
 
 class ChatProcessor:
@@ -109,7 +110,8 @@ class ChatProcessor:
             mask = df[header] == 1
 
             if mask.any():
-                for row in cast(list[ChatRow], df[mask].itertuples()):
+                print("Start checking sentiment:", header)
+                for row in cast(list[ChatRow], tqdm(df[mask].itertuples(), total=df[mask].shape[0], desc="Processing Rows")):
                     data = f"Formula Brand: {header}, Message: {row.messageBody}"
                     response = self.analyzer.analyze(data)
                     df.loc[row.Index, header] = response["sentiment"]
