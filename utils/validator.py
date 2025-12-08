@@ -1,5 +1,6 @@
 import pandera.pandas as pa
-from typing import NamedTuple
+from typing import NamedTuple, Literal
+from pydantic import BaseModel
 
 class KeywordSchemaRaw(pa.DataFrameModel):
     brand: str
@@ -50,3 +51,7 @@ class ChatRow(NamedTuple):
     mediaType: str
     mediaCaption: str
     Reason: str
+
+class SentimentResponse(BaseModel):
+    sentiment: Literal["P", "N", "I"]
+    reason: str
