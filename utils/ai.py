@@ -1,9 +1,10 @@
 import os
 import json
 import asyncio
+from typing import Literal
 from dotenv import load_dotenv
 from openai import OpenAI, AsyncOpenAI, APIStatusError
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionMessageParam, ChatCompletion
 
 load_dotenv()
 
@@ -28,18 +29,25 @@ class LLMProvider:
 
     def get_completion(
         self, messages: list[ChatCompletionMessageParam], model: str
-    ) -> tuple[bool, str]:
+    ) -> tuple[Literal[True], ChatCompletion] | tuple[Literal[False], str]:
         try:
             response = self.client.chat.completions.create(
                 model=self.model, messages=messages, stream=False
             )
+            return True, response
         except APIStatusError as e:
             return False, f"APIStatusError: {e}"
 
-        if isinstance(response.choices[0].message.content, str):
-            return True, response.choices[0].message.content
-        else:
-            return False, "Failed to get response.choices[0].message.content"
+    async def get_completion_async(
+        self, messages: list[ChatCompletionMessageParam], model: str
+    ) -> tuple[Literal[True], ChatCompletion] | tuple[Literal[False], str]:
+        try:
+            response = await self.client_async.chat.completions.create(
+                model=self.model, messages=messages, stream=False
+            )
+            return True, response
+        except APIStatusError as e:
+            return False, f"APIStatusError: {e}"
 
 
 class SentimentAnalyzer:
@@ -109,7 +117,9 @@ class SentimentAnalyzer:
             {"role": "user", "content": user_prompt},
         ]
 
-        success, response_str = self.provider.get_completion(messages, self.provider.model)
+        success, response_str = self.provider.get_completion(
+            messages, self.provider.model
+        )
 
         try:
             return json.loads(response_str)
