@@ -114,23 +114,45 @@ class SentimentAnalyzer:
         """
         self.system_prompt = updated_prompt
 
-    def analyze(self, user_prompt: str) -> dict[str, str]:
+    async def analyze(self, user_prompt: str, index: int, header: str) -> SentimentResponse:
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_prompt},
         ]
 
-        success, response_str = self.provider.get_completion(
-            messages, self.provider.model
+        return await self.get_valid_response(messages, SentimentResponse)
+
+    async def get_valid_response(
+        self,
+        messages: list[ChatCompletionMessageParam],
+        model_class: type[SentimentResponse],
+        max_retries: int = 3,
+    ):
+
+        for _ in range(max_retries):
+            success, response = await self.provider.get_completion_async(
+                messages, self.provider.model
+            )
+
+            try:
+                if isinstance(response, ChatCompletion) and isinstance(
+                    response.choices[0].message.content, str
+                ):
+                    response_text: str = response.choices[0].message.content
+                    return self.parse_and_validate(response_text, model_class)
+            except ValueError as e:
+                # Feed the error back to the LLM!
+                error_msg = f"Your JSON was invalid. Error: {str(e)}. Please fix and output only JSON."
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({"role": "user", "content": error_msg})
+
+        raise Exception(
+            f"Failed to get valid JSON after {max_retries} times of retries"
         )
 
-        try:
-            return json.loads(response_str)
-        except json.JSONDecodeError:
-            print("Failed to parse JSON response from AI:", response_str)
-            return {"sentiment": "Error", "reason": "JSON Parse Error"}
-
-    def parse_and_validate(self, llm_output: str, model_class: SentimentResponse) -> SentimentResponse:
+    def parse_and_validate(
+        self, llm_output: str, model_class: type[SentimentResponse]
+    ) -> SentimentResponse:
         """
         Strips markdown, parses JSON, and validates against Pydantic model.
         """
