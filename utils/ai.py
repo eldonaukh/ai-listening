@@ -114,7 +114,7 @@ class SentimentAnalyzer:
         """
         self.system_prompt = updated_prompt
 
-    async def analyze(self, user_prompt: str, index: int, header: str) -> SentimentResponse:
+    async def analyze(self, user_prompt: str) -> SentimentResponse:
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_prompt},
