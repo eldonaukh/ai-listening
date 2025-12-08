@@ -1,10 +1,13 @@
 import os
 import json
 import asyncio
+import re
 from typing import Literal
 from dotenv import load_dotenv
 from openai import OpenAI, AsyncOpenAI, APIStatusError
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletion
+from pydantic import ValidationError
+from utils.validator import SentimentResponse
 
 load_dotenv()
 
@@ -126,6 +129,32 @@ class SentimentAnalyzer:
         except json.JSONDecodeError:
             print("Failed to parse JSON response from AI:", response_str)
             return {"sentiment": "Error", "reason": "JSON Parse Error"}
+
+    def parse_and_validate(self, llm_output: str, model_class: SentimentResponse) -> SentimentResponse:
+        """
+        Strips markdown, parses JSON, and validates against Pydantic model.
+        """
+        try:
+            # Step A: Clean Markdown (LLMs love to wrap JSON in ```json ... ```)
+            # Look for content between ```json and ``` or just ``` and ```
+            match = re.search(r"```(?:json)?(.*?)```", llm_output, re.DOTALL)
+            if match:
+                json_str = match.group(1).strip()
+            else:
+                # Assume the whole string is JSON if no markdown found
+                json_str = llm_output.strip()
+
+            # Step B: Parse JSON
+            data = json.loads(json_str)
+
+            # Step C: Validate against Pydantic
+            validated_obj = model_class.model_validate(data)
+            return validated_obj
+
+        except json.JSONDecodeError:
+            raise ValueError("LLM did not return valid JSON syntax.")
+        except ValidationError as e:
+            raise ValueError(f"JSON structure invalid: {e}")
 
 
 def get_analyzer(provider_name: str, model_name: str) -> SentimentAnalyzer:
