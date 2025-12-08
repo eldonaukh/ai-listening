@@ -1,11 +1,18 @@
 import pandas as pd
 from utils.ai import SentimentAnalyzer
-from utils.validator import KeywordSchema, ChatSchema, KeywordRow, ChatRow, SentimentResponse
+from utils.validator import (
+    KeywordSchema,
+    ChatSchema,
+    KeywordRow,
+    ChatRow,
+    SentimentResponse,
+)
 from typing import cast, Coroutine, Any
 from pandera.typing import DataFrame, Series
 import json
 from tqdm import tqdm
 import asyncio
+from aiolimiter import AsyncLimiter
 
 
 class ChatProcessor:
@@ -108,45 +115,66 @@ class ChatProcessor:
             df = self._chat_df_zero_to_string(chat_df, header)
             # keywords = self._get_keywords_for_prompt(header)
             tasks: list[asyncio.Task[tuple[str, int, SentimentResponse]]] = []
-            task_list: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]] = []
+            task_list: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]] = (
+                []
+            )
             # loop = asyncio.get_event_loop()
             mask = df[header] == 1
 
             if mask.any():
                 print("Start checking sentiment:", header)
-                for row in cast(list[ChatRow], tqdm(df[mask].itertuples(), total=df[mask].shape[0], desc="Processing Rows")):
+                for row in cast(
+                    list[ChatRow],
+                    tqdm(
+                        df[mask].itertuples(),
+                        total=df[mask].shape[0],
+                        desc="Processing Rows",
+                    ),
+                ):
                     user_prompt = f"Formula Brand: {header}, Message: {row.messageBody}"
                     # task = loop.create_task(self._wrap_analyze_with_index(user_prompt, int(row.Index), header))
                     # tasks.append(task)
-                    task_list.append(self._wrap_analyze_with_index(user_prompt, int(row.Index), header))
-                    
+                    task_list.append(
+                        self._wrap_analyze_with_index(
+                            user_prompt, int(row.Index), header
+                        )
+                    )
+
                     # turn row under header into list
                     # iterate through list to create task
                     # gather task, await
-                    # 
+                    #
                     # results = asyncio.run()
-                    
+
                     # response = await self._wrap_analyze_with_index(data, int(row.Index), header)
                     # df.loc[row.Index, header] = response.sentiment
                     # df.loc[row.Index, "Reason"] = (
                     #     header + ": " + response.reason + "\n"
                     # )
                 # results = asyncio.run(self._run_async_check(tasks))
+
                 results = asyncio.run(self._run_async_check(task_list))
-                
+
                 for result in results:
                     header, index, response = result
                     df.loc[str(index), header] = response.sentiment
                     df.loc[str(index), "Reason"] = response.reason
         return df
-    
-    async def _run_async_check(self, tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]]):
+
+    async def _run_async_check(
+        self, tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]]
+    ):
+
         responses = await asyncio.gather(*tasks)
         return responses
-    
-    async def _wrap_analyze_with_index(self, user_prompt: str, index: int, header:str) -> tuple[str, int, SentimentResponse]:
-        response = await self.analyzer.analyze(user_prompt)        
-        return header, index, response
+
+    async def _wrap_analyze_with_index(
+        self, user_prompt: str, index: int, header: str
+    ) -> tuple[str, int, SentimentResponse]:
+        rate_limiter = AsyncLimiter(max_rate=60, time_period=60)
+        async with rate_limiter:
+            response = await self.analyzer.analyze(user_prompt)
+            return header, index, response
 
     # def _pass_to_llm_apply(self, row: pd.Series, header: str) -> pd.Series:
     #     data = f"Formula Brand: {header}, Message: {row["messageBody"]}"

@@ -126,7 +126,7 @@ class SentimentAnalyzer:
         self,
         messages: list[ChatCompletionMessageParam],
         model_class: type[SentimentResponse],
-        max_retries: int = 3,
+        max_retries: int = 1,
     ):
 
         for _ in range(max_retries):
