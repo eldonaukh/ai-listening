@@ -1,8 +1,8 @@
 import os
 import json
-import httpx
+import asyncio
 from dotenv import load_dotenv
-from openai import OpenAI, APIStatusError
+from openai import OpenAI, AsyncOpenAI, APIStatusError
 from openai.types.chat import ChatCompletionMessageParam
 
 load_dotenv()
@@ -15,6 +15,7 @@ class LLMProvider:
         self.base_url = base_url
         self.model = model
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.client_async = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
     @property
     def api_key(self) -> str:
