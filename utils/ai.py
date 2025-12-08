@@ -28,18 +28,18 @@ class LLMProvider:
 
     def get_completion(
         self, messages: list[ChatCompletionMessageParam], model: str
-    ) -> str:
+    ) -> tuple[bool, str]:
         try:
             response = self.client.chat.completions.create(
                 model=self.model, messages=messages, stream=False
             )
         except APIStatusError as e:
-            return "{}"
+            return False, f"APIStatusError: {e}"
 
         if isinstance(response.choices[0].message.content, str):
-            return response.choices[0].message.content
+            return True, response.choices[0].message.content
         else:
-            return "{}"
+            return False, "Failed to get response.choices[0].message.content"
 
 
 class SentimentAnalyzer:
@@ -109,7 +109,7 @@ class SentimentAnalyzer:
             {"role": "user", "content": user_prompt},
         ]
 
-        response_str = self.provider.get_completion(messages, self.provider.model)
+        success, response_str = self.provider.get_completion(messages, self.provider.model)
 
         try:
             return json.loads(response_str)
