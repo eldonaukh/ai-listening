@@ -46,7 +46,7 @@ class Preprocessor:
         chat_path = self.base_path / chat_folder
         subfolders = [f for f in chat_path.iterdir() if f.is_dir()]
         for sub in subfolders:
-            print("Start processing:", sub.name)
+            print("Processing files in folder:", sub.name)
             dataframes = Preprocessor._get_chat_df_folder(sub)
             if dataframes:
                 df = Preprocessor._combine_chat(dataframes).reindex(
@@ -85,7 +85,7 @@ class Preprocessor:
             chat = ChatSchemaRaw.validate(df.fillna(""))
 
         if chat is not None:
-            chat["Source"] = file_path.name
+            chat["Source"] = file_path.name.replace(".csv", "")
             chat["Group"] = ""
             chat["Reason"] = ""
             validated_chat = ChatSchema.validate(chat)
