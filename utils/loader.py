@@ -1,5 +1,6 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 
 class DataLoader:
@@ -10,7 +11,7 @@ class DataLoader:
             return pd.read_excel(path)
         except Exception as e:
             print("Error:", e)
-            
+
     @staticmethod
     def csv_to_df(path: str | Path):
         try:

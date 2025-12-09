@@ -1,9 +1,12 @@
 from pathlib import Path
+
+import pandas as pd
 import pandera as pa
 from pandera.typing import DataFrame
-from utils.validator import KeywordSchemaRaw, KeywordSchema, ChatSchemaRaw, ChatSchema
+
 from utils.loader import DataLoader
-import pandas as pd
+from utils.validator import (ChatSchema, ChatSchemaRaw, KeywordSchema,
+                             KeywordSchemaRaw)
 
 
 class Preprocessor:

@@ -1,12 +1,14 @@
-import os
-import json
 import asyncio
+import json
+import os
 import re
 from typing import Literal
+
 from dotenv import load_dotenv
-from openai import OpenAI, AsyncOpenAI, APIStatusError, APIConnectionError
-from openai.types.chat import ChatCompletionMessageParam, ChatCompletion
+from openai import APIConnectionError, APIStatusError, AsyncOpenAI, OpenAI
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from pydantic import ValidationError
+
 from utils.validator import BaseModel, SentimentResponse
 
 load_dotenv()

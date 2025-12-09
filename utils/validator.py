@@ -1,6 +1,8 @@
+from typing import Literal, NamedTuple
+
 import pandera.pandas as pa
-from typing import NamedTuple, Literal
 from pydantic import BaseModel
+
 
 class KeywordSchemaRaw(pa.DataFrameModel):
     brand: str
@@ -14,7 +16,7 @@ class KeywordSchema(KeywordSchemaRaw):
     headers: str
 
 
-class ChatSchemaRaw(pa.DataFrameModel):    
+class ChatSchemaRaw(pa.DataFrameModel):
     Date1: str = pa.Field(nullable=True)
     Date2: str
     Time: str
@@ -38,6 +40,7 @@ class KeywordRow(NamedTuple):
     required_product: str | None
     required_keyword: str | None
 
+
 class ChatRow(NamedTuple):
     Index: str
     Source: str
@@ -51,6 +54,7 @@ class ChatRow(NamedTuple):
     mediaType: str
     mediaCaption: str
     Reason: str
+
 
 class SentimentResponse(BaseModel):
     success: bool
