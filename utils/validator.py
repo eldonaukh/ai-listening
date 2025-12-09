@@ -53,5 +53,6 @@ class ChatRow(NamedTuple):
     Reason: str
 
 class SentimentResponse(BaseModel):
+    success: bool
     sentiment: Literal["P", "N", "I"]
     reason: str
