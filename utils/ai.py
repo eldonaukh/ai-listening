@@ -4,10 +4,10 @@ import asyncio
 import re
 from typing import Literal
 from dotenv import load_dotenv
-from openai import OpenAI, AsyncOpenAI, APIStatusError
+from openai import OpenAI, AsyncOpenAI, APIStatusError, APIConnectionError
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletion
 from pydantic import ValidationError
-from utils.validator import SentimentResponse
+from utils.validator import BaseModel, SentimentResponse
 
 load_dotenv()
 
@@ -31,7 +31,7 @@ class LLMProvider:
             return "error"
 
     def get_completion(
-        self, messages: list[ChatCompletionMessageParam], model: str
+        self, messages: list[ChatCompletionMessageParam]
     ) -> tuple[Literal[True], ChatCompletion] | tuple[Literal[False], str]:
         try:
             response = self.client.chat.completions.create(
@@ -42,7 +42,7 @@ class LLMProvider:
             return False, f"APIStatusError: {e}"
 
     async def get_completion_async(
-        self, messages: list[ChatCompletionMessageParam], model: str
+        self, messages: list[ChatCompletionMessageParam]
     ) -> tuple[Literal[True], ChatCompletion] | tuple[Literal[False], str]:
         try:
             response = await self.client_async.chat.completions.create(
@@ -51,6 +51,8 @@ class LLMProvider:
             return True, response
         except APIStatusError as e:
             return False, f"APIStatusError: {e}"
+        except APIConnectionError as e:
+            return False, f"APIConnectionError: {e}"
 
 
 class SentimentAnalyzer:
@@ -126,13 +128,11 @@ class SentimentAnalyzer:
         self,
         messages: list[ChatCompletionMessageParam],
         model_class: type[SentimentResponse],
-        max_retries: int = 1,
+        max_retries: int = 3,
     ):
 
         for _ in range(max_retries):
-            success, response = await self.provider.get_completion_async(
-                messages, self.provider.model
-            )
+            success, response = await self.provider.get_completion_async(messages)
 
             try:
                 if isinstance(response, ChatCompletion) and isinstance(
@@ -168,6 +168,7 @@ class SentimentAnalyzer:
 
             # Step B: Parse JSON
             data = json.loads(json_str)
+            data["success"] = True
 
             # Step C: Validate against Pydantic
             validated_obj = model_class.model_validate(data)
