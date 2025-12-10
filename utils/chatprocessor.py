@@ -25,7 +25,7 @@ class ChatProcessor:
     ):
         self._keyword_df = keyword_df
         self.analyzer = analyzer
-        self.sem = asyncio.Semaphore(2)
+        self.sem = asyncio.Semaphore(3)
 
     @property
     def keyword_df(self):
@@ -99,7 +99,6 @@ class ChatProcessor:
 
         return chat_df
 
-
     def _apply_mask_vec(
         self,
         chat_df: pd.DataFrame,  # simplified type hint for clarity
@@ -153,7 +152,9 @@ class ChatProcessor:
                 # Check (Contains Keyword) AND (Contains Required)
                 row_mask = target_series.str.contains(
                     row.keyword, case=False, na=False
-                ) & target_series.str.contains(row.required_keyword, case=False, na=False)
+                ) & target_series.str.contains(
+                    row.required_keyword, case=False, na=False
+                )
                 combined_mask |= row_mask
 
         # 5. Apply the result back to the DataFrame
@@ -184,63 +185,49 @@ class ChatProcessor:
         return chat_df
 
     def _check_sentiment(self, chat_df: DataFrame[ChatSchema]):
+        all_tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]] = []
         for header in self.unique_headers:
             df = self._chat_df_zero_to_string(chat_df, header)
-            # keywords = self._get_keywords_for_prompt(header)
-            tasks: list[asyncio.Task[tuple[str, int, SentimentResponse]]] = []
-            task_list: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]] = (
-                []
-            )
-            # loop = asyncio.get_event_loop()
             mask = df[header] == 1
 
             if mask.any():
-                for row in cast(
-                    list[ChatRow],
-                    tqdm(
-                        df[mask].itertuples(),
-                        total=df[mask].shape[0],
-                        desc=f"Creating tasks: {header}",
-                    ),
-                ):
-                    user_prompt = f"Formula Brand: {header}, Message: {row.messageBody}"
-                    # task = loop.create_task(self._wrap_analyze_with_index(user_prompt, int(row.Index), header))
-                    # tasks.append(task)
-                    task_list.append(
-                        self._wrap_analyze_with_index(
-                            user_prompt, int(row.Index), header
-                        )
-                    )
+                indices = df.index[mask].tolist()
+                prompts = [
+                    f"Formula Brand: {header}, Message: {msg}"
+                    for msg in df.loc[mask, "messageBody"].tolist()
+                ]
+                tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]] = [
+                    self._wrap_analyze_with_index(prompt, int(index), header)
+                    for prompt, index in zip(prompts, indices)
+                ]
+                all_tasks.extend(tasks)
 
-                results = asyncio.run(self._run_async_check(task_list))
+        results = asyncio.run(self._run_async_check(all_tasks))
 
-                for result in results:
-                    header, index, response = result
-                    # index_str = str(index)
+        for result in results:
+            header, index, response = result
+            # index_str = str(index)
 
-                    if response.success:
-                        df.loc[index, header] = response.sentiment
+            if response.success:
+                df.loc[index, header] = response.sentiment
 
-                    current_reason = str(df.loc[index, "Reason"])
-                    df.loc[index, "Reason"] = (
-                        current_reason + f"{header}: {response.reason}\n"
-                    )
+            current_reason = str(df.loc[index, "Reason"])
+            df.loc[index, "Reason"] = current_reason + f"{header}: {response.reason}\n"
         return df
 
     async def _run_async_check(
         self, tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]]
     ):
-        async with self.sem:
-            responses: list[tuple[str, int, SentimentResponse]] = await tqdmas.gather(
-                *tasks
-            )
-            # print(f"Completed {len(responses)} requests")
-            return responses
+
+        results: list[tuple[str, int, SentimentResponse]] = await tqdmas.gather(
+            *tasks, desc="Checking Sentiment"
+        )
+
+        return results
 
     async def _wrap_analyze_with_index(
         self, user_prompt: str, index: int, header: str
     ) -> tuple[str, int, SentimentResponse]:
-        # Add a small sleep to prevent "bursts" even within the semaphore limit
         await asyncio.sleep(1)
         try:
             response = await self.analyzer.analyze(user_prompt)
@@ -251,13 +238,6 @@ class ChatProcessor:
                 index,
                 SentimentResponse(success=False, sentiment="I", reason=str(e)),
             )
-
-    # def _pass_to_llm_apply(self, row: pd.Series, header: str) -> pd.Series:
-    #     data = f"Formula Brand: {header}, Message: {row["messageBody"]}"
-    #     response = self.analyzer.analyze(data)
-    #     row[header] = response.sentiment
-    #     row["Reason"] = header + ": " + response.reason + "\n"
-    #     return row
 
     def _get_keywords_for_prompt(self, header: str) -> str:
         keywords: list[str] = []
