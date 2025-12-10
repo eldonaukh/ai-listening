@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from typing import Any, Coroutine, cast
 
 import pandas as pd
@@ -8,8 +9,13 @@ from tqdm import tqdm
 from tqdm.asyncio import tqdm as tqdmas
 
 from utils.ai import SentimentAnalyzer
-from utils.validator import (ChatRow, ChatSchema, KeywordRow, KeywordSchema,
-                             SentimentResponse)
+from utils.validator import (
+    ChatRow,
+    ChatSchema,
+    KeywordRow,
+    KeywordSchema,
+    SentimentResponse,
+)
 
 
 class ChatProcessor:
@@ -57,7 +63,7 @@ class ChatProcessor:
             subbrand = [brand for brand in self.non_generic_headers if main in brand]
             skip_mask = chat_df[subbrand].any(axis=1)
 
-            self._apply_mask(chat_df, g, skip_mask=skip_mask)
+            self._apply_mask_vec(chat_df, g, skip_mask=skip_mask)
         return chat_df
 
     def _apply_mask(
@@ -90,6 +96,75 @@ class ChatProcessor:
             ] | final_mask.astype(int)
         else:
             chat_df[header] = chat_df[header] | final_mask.astype(int)
+
+        return chat_df
+
+
+    def _apply_mask_vec(
+        self,
+        chat_df: pd.DataFrame,  # simplified type hint for clarity
+        header: str,
+        skip_mask: pd.Series | None,
+        message_column: str = "messageBody",
+    ) -> pd.DataFrame:
+        matched = self._get_keyword_rows_of_header(header)
+
+        # If no keywords match this header, return early to save processing
+        if matched.empty:
+            return chat_df
+
+        # 1. Define the target series based on the skip_mask
+        if skip_mask is None:
+            target_indices = chat_df.index
+            target_series = chat_df[message_column]
+        else:
+            target_indices = chat_df.index[~skip_mask]
+            target_series = chat_df.loc[~skip_mask, message_column]
+
+        # 2. Construct a single compiled Regex pattern
+        # The original logic seemed to imply OR logic between rows (though the loop overwrote it).
+        # We assume you want to flag the row if ANY of the keyword rules match.
+
+        # Group 1: Keywords that have NO required_keyword
+        simple_keywords = matched[
+            matched["required_keyword"].isna() | (matched["required_keyword"] == "")
+        ]["keyword"].tolist()
+
+        # Group 2: Keywords that DO have a required_keyword
+        complex_rows = matched[
+            matched["required_keyword"].notna() & (matched["required_keyword"] != "")
+        ]
+
+        # Initialize a mask of False for all target rows
+        combined_mask = pd.Series(False, index=target_indices)
+
+        # 3. Vectorized application for Simple Keywords (OR logic)
+        if simple_keywords:
+            # Escape keywords to treat them as literal strings in regex, join with OR pipe
+            pattern = "|".join(map(re.escape, simple_keywords))
+            combined_mask |= target_series.str.contains(pattern, case=False, na=False)
+
+        # 4. Vectorized application for Complex Keywords (AND logic per row)
+        # We cannot easily join these into one regex because of the AND relationship (keyword + required).
+        # However, we can iterate ONLY the complex rules (usually fewer) or construct a specific lookahead regex.
+        # Approach: Iterate complex rows (still faster than row-by-row if few complex rules exist)
+        if not complex_rows.empty:
+            for row in cast(list, complex_rows.itertuples(index=False)):
+                # Check (Contains Keyword) AND (Contains Required)
+                row_mask = target_series.str.contains(
+                    row.keyword, case=False, na=False
+                ) & target_series.str.contains(row.required_keyword, case=False, na=False)
+                combined_mask |= row_mask
+
+        # 5. Apply the result back to the DataFrame
+        # Ensure the column exists and is integer type if not already
+        if header not in chat_df.columns:
+            chat_df[header] = 0
+
+        # We use bitwise OR to merge with existing flags in that column
+        chat_df.loc[target_indices, header] = chat_df.loc[
+            target_indices, header
+        ] | combined_mask.astype(int)
 
         return chat_df
 
