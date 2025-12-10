@@ -22,6 +22,7 @@ class LLMProvider:
         self.model = model
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.client_async = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.sem = asyncio.Semaphore(3)
 
     @property
     def api_key(self) -> str:
@@ -46,15 +47,16 @@ class LLMProvider:
     async def get_completion_async(
         self, messages: list[ChatCompletionMessageParam]
     ) -> tuple[Literal[True], ChatCompletion] | tuple[Literal[False], str]:
-        try:
-            response = await self.client_async.chat.completions.create(
-                model=self.model, messages=messages, stream=False
-            )
-            return True, response
-        except APIStatusError as e:
-            return False, f"APIStatusError: {e}"
-        except APIConnectionError as e:
-            return False, f"APIConnectionError: {e}"
+        async with self.sem:
+            try:
+                response = await self.client_async.chat.completions.create(
+                    model=self.model, messages=messages, stream=False
+                )
+                return True, response
+            except APIStatusError as e:
+                return False, f"APIStatusError: {e}"
+            except APIConnectionError as e:
+                return False, f"APIConnectionError: {e}"
 
 
 class SentimentAnalyzer:
