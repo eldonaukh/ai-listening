@@ -1,6 +1,5 @@
 import shutil
 from pathlib import Path
-from typing import cast
 
 import pandas as pd
 from tqdm import tqdm
@@ -116,7 +115,10 @@ class DataManager:
 
                     # Sort
                     # We sort by the temp columns if created
-                    if "temp_sort_date" in merged_df.columns:
+                    if (
+                        "temp_sort_date" in merged_df.columns
+                        and merged_df.dtypes["temp_sort_date"] == pd.Timestamp
+                    ):
                         merged_df.sort_values(
                             by=["temp_sort_date", "temp_sort_time"],
                             ascending=[True, True],
@@ -163,7 +165,9 @@ class DataManager:
             nature_df = pd.read_excel(group_nature, dtype=str)
 
         nature_df["filename"] = nature_df["gus_id"] + ".csv"
-        nature_dict = cast(list[dict[str, str]], nature_df.to_dict(orient="records"))
+        nature_dict = dict(
+            zip(nature_df["filename"], nature_df["group_nature"])
+        )  # cast(list[dict[str, str]], nature_df.to_dict(orient="records"))
 
         # create folders by nature
         natures: list[str] = list(nature_df["group_nature"].astype(str).unique())
@@ -176,14 +180,15 @@ class DataManager:
             nature_paths[nature] = dst_path / nature
 
         for file in files:
-            nature = next(
-                (
-                    item["group_nature"]
-                    for item in nature_dict
-                    if item["filename"] == file.name
-                ),
-                "",
-            )
+            nature = nature_dict.get(file.name, "")
+            # nature = next(
+            #     (
+            #         item["group_nature"]
+            #         for item in nature_dict
+            #         if item["filename"] == file.name
+            #     ),
+            #     "",
+            # )
             if len(nature) > 1:
                 dest = dst_path / nature
                 shutil.copy2(file, dest)

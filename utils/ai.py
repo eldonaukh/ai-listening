@@ -10,14 +10,22 @@ from openai import APIConnectionError, APIStatusError, AsyncOpenAI, OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from pydantic import ValidationError
 
-from utils.validator import BaseModel, SentimentResponse
+from utils.validator import SentimentResponse
 
 load_dotenv()
 
 
 class LLMProvider:
 
-    def __init__(self, name: str, base_url: str, model: str, max_concurrent_task: int, max_rate: int, time_preiod: int):
+    def __init__(
+        self,
+        name: str,
+        base_url: str,
+        model: str,
+        max_concurrent_task: int,
+        max_rate: int,
+        time_preiod: int,
+    ):
         self.name = name
         self.base_url = base_url
         self.model = model
@@ -187,11 +195,19 @@ class SentimentAnalyzer:
             raise ValueError(f"JSON structure invalid: {e}")
 
 
-def get_analyzer(provider_name: str, model_name: str, max_concurrent_task: int = 20, max_rate: int = 60, time_preiod: int = 60) -> SentimentAnalyzer:
+def get_analyzer(
+    provider_name: str,
+    model_name: str = "poe",
+    max_concurrent_task: int = 50,
+    max_rate: int = 100,
+    time_preiod: int = 60,
+) -> SentimentAnalyzer:
     provider_name = provider_name.lower().strip()
     match provider_name.lower().strip():
         case "poe":
             base_url = "https://api.poe.com/v1"
 
-    provider = LLMProvider(provider_name, base_url, model_name, max_concurrent_task, max_rate, time_preiod)
+    provider = LLMProvider(
+        provider_name, base_url, model_name, max_concurrent_task, max_rate, time_preiod
+    )
     return SentimentAnalyzer(provider)

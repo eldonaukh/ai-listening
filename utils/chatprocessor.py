@@ -5,17 +5,11 @@ from typing import Any, Coroutine, cast
 
 import pandas as pd
 from pandera.typing import DataFrame
-from tqdm import tqdm
 from tqdm.asyncio import tqdm as tqdmas
 
 from utils.ai import SentimentAnalyzer
-from utils.validator import (
-    ChatRow,
-    ChatSchema,
-    KeywordRow,
-    KeywordSchema,
-    SentimentResponse,
-)
+from utils.validator import (ChatRow, ChatSchema, KeywordRow, KeywordSchema,
+                             SentimentResponse)
 
 
 class ChatProcessor:
@@ -25,7 +19,6 @@ class ChatProcessor:
     ):
         self._keyword_df = keyword_df
         self.analyzer = analyzer
-        self.sem = asyncio.Semaphore(3)
 
     @property
     def keyword_df(self):
@@ -43,7 +36,9 @@ class ChatProcessor:
     def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
 
-    async def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
+    async def process_chat_df(
+        self, chat_df: DataFrame[ChatSchema]
+    ) -> DataFrame[ChatSchema]:
         df = chat_df.copy()
         df = self._add_header_columns_to_chat_df(chat_df)
         df = self._tag_keywords(df)
@@ -204,7 +199,7 @@ class ChatProcessor:
                 all_tasks.extend(tasks)
 
         results: list[tuple[str, int, SentimentResponse]] = await tqdmas.gather(
-            *all_tasks, desc="Checking Sentiment"
+            *all_tasks, desc="Checking sentiment", colour="green"
         )
 
         for result in results:

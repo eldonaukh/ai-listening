@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pandas as pd
-import pandera as pa
 from pandera.typing import DataFrame
+from tqdm import tqdm
 
 from utils.loader import DataLoader
 from utils.validator import (ChatSchema, ChatSchemaRaw, KeywordSchema,
@@ -33,14 +33,18 @@ class Preprocessor:
                 brand = str(validated_keywords.at[idx, "brand"])
                 req_prod = str(validated_keywords.at[idx, "required_product"])
                 validated_keywords.at[idx, "required_keyword"] = (
-                    Preprocessor._get_required_keyword(brand, req_prod, validated_keywords)
+                    Preprocessor._get_required_keyword(
+                        brand, req_prod, validated_keywords
+                    )
                 )
             return validated_keywords
 
         return None
 
     @staticmethod
-    def _get_required_keyword(brand: str, req_prod: str, df: DataFrame[KeywordSchema]) -> str:
+    def _get_required_keyword(
+        brand: str, req_prod: str, df: DataFrame[KeywordSchema]
+    ) -> str:
         headers = [brand + "_" + p.strip() for p in req_prod.split(",")]
         keywords = df.loc[df["headers"].isin(headers), "keyword"].tolist()
         return "|".join(keywords)
@@ -49,8 +53,9 @@ class Preprocessor:
         sheets: dict[str, DataFrame[ChatSchema]] = {}
         chat_path = self.base_path / chat_folder
         subfolders = [f for f in chat_path.iterdir() if f.is_dir()]
-        for sub in subfolders:
-            print("Processing files in folder:", sub.name)
+
+        for sub in tqdm(subfolders, desc="Loading CSV fils content", unit="files"):
+            tqdm.write("Reading folder: " + sub.name)
             dataframes = Preprocessor._get_chat_df_folder(sub)
             if dataframes:
                 df = Preprocessor._combine_chat(dataframes).reindex(
