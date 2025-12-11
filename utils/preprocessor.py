@@ -30,18 +30,19 @@ class Preprocessor:
             validated_keywords = KeywordSchema.validate(keywords)
 
             for idx in validated_keywords.index:
+                brand = str(validated_keywords.at[idx, "brand"])
                 req_prod = str(validated_keywords.at[idx, "required_product"])
                 validated_keywords.at[idx, "required_keyword"] = (
-                    Preprocessor._get_required_keyword(req_prod, validated_keywords)
+                    Preprocessor._get_required_keyword(brand, req_prod, validated_keywords)
                 )
             return validated_keywords
 
         return None
 
     @staticmethod
-    def _get_required_keyword(req_prod: str, df: DataFrame[KeywordSchema]) -> str:
-        products = [p.strip() for p in req_prod.split(",")]
-        keywords = df.loc[df["product"].isin(products), "keyword"].tolist()
+    def _get_required_keyword(brand: str, req_prod: str, df: DataFrame[KeywordSchema]) -> str:
+        headers = [brand + "_" + p.strip() for p in req_prod.split(",")]
+        keywords = df.loc[df["headers"].isin(headers), "keyword"].tolist()
         return "|".join(keywords)
 
     def get_chat_df_dict(self, chat_folder: str) -> dict[str, DataFrame[ChatSchema]]:
