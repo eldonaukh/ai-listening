@@ -4,6 +4,7 @@ import os
 import re
 from typing import Literal
 
+from aiolimiter import AsyncLimiter
 from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI, OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
@@ -16,13 +17,14 @@ load_dotenv()
 
 class LLMProvider:
 
-    def __init__(self, name: str, base_url: str, model: str):
+    def __init__(self, name: str, base_url: str, model: str, max_concurrent_task: int, max_rate: int, time_preiod: int):
         self.name = name
         self.base_url = base_url
         self.model = model
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.client_async = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
-        self.sem = asyncio.Semaphore(3)
+        self.sem = asyncio.Semaphore(max_concurrent_task)
+        self.limiter = AsyncLimiter(max_rate=max_rate, time_period=time_preiod)
 
     @property
     def api_key(self) -> str:
@@ -31,7 +33,7 @@ class LLMProvider:
         if isinstance(api_key, str):
             return api_key
         else:
-            return "error"
+            raise Exception("API Key not found.")
 
     def get_completion(
         self, messages: list[ChatCompletionMessageParam]
@@ -47,16 +49,17 @@ class LLMProvider:
     async def get_completion_async(
         self, messages: list[ChatCompletionMessageParam]
     ) -> tuple[Literal[True], ChatCompletion] | tuple[Literal[False], str]:
-        async with self.sem:
-            try:
-                response = await self.client_async.chat.completions.create(
-                    model=self.model, messages=messages, stream=False
-                )
-                return True, response
-            except APIStatusError as e:
-                return False, f"APIStatusError: {e}"
-            except APIConnectionError as e:
-                return False, f"APIConnectionError: {e}"
+        async with self.limiter:
+            async with self.sem:
+                try:
+                    response = await self.client_async.chat.completions.create(
+                        model=self.model, messages=messages, stream=False
+                    )
+                    return True, response
+                except APIStatusError as e:
+                    return False, f"APIStatusError: {e}"
+                except APIConnectionError as e:
+                    return False, f"APIConnectionError: {e}"
 
 
 class SentimentAnalyzer:
@@ -184,11 +187,11 @@ class SentimentAnalyzer:
             raise ValueError(f"JSON structure invalid: {e}")
 
 
-def get_analyzer(provider_name: str, model_name: str) -> SentimentAnalyzer:
+def get_analyzer(provider_name: str, model_name: str, max_concurrent_task: int = 20, max_rate: int = 60, time_preiod: int = 60) -> SentimentAnalyzer:
     provider_name = provider_name.lower().strip()
     match provider_name.lower().strip():
         case "poe":
             base_url = "https://api.poe.com/v1"
 
-    provider = LLMProvider(provider_name, base_url, model_name)
+    provider = LLMProvider(provider_name, base_url, model_name, max_concurrent_task, max_rate, time_preiod)
     return SentimentAnalyzer(provider)
