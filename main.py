@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+from pathlib import Path
 
 from tqdm import tqdm
 
@@ -98,7 +99,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-async def main() -> None:
+async def manual() -> None:
 
     base_path = "./data"
     if False:
@@ -121,6 +122,54 @@ async def main() -> None:
             chats[sheet] = df
             tqdm.write("Processed folder: " + sheet)
         c.save_result(chats, "./data/output.xlsx")
+
+async def main() -> None:
+    args = parse_arguments()
+    
+    base_path = Path(args.base_path)
+    
+    # 1. Data Merging and Organization (Optional via flag)
+    if args.merge:
+        print("Starting Data Merge and Organization...")
+        d = DataManager(str(base_path))
+        d.merge_csv_files(src=args.merge_src, dst=args.merge_dst)
+        
+        group_info_path = base_path / args.group_info_file
+        d.organize_csv_by_nature(
+            src=args.merge_dst, 
+            dst=args.natures_dst, 
+            group_nature=str(group_info_path)
+        )
+        print("Merge and Organization complete.")
+
+    # 2. Preprocessing
+    p = Preprocessor(base_path)
+    # Note: 'natures' folder is hardcoded in original as source for chat_df, 
+    # assuming it matches args.natures_dst
+    chats = p.get_chat_df_dict(args.natures_dst)
+    keyword = p.get_keyword_df(args.keyword_file)
+
+    # 3. AI Analysis
+    a = get_analyzer(
+        provider_name=args.provider, 
+        model_name=args.model, 
+        max_concurrent_task=args.max_concurrent, 
+        max_rate=args.max_rate, 
+        time_preiod=args.time_period
+    )
+
+    if keyword is not None:
+        c = ChatProcessor(keyword_df=keyword, analyzer=a)
+        
+        for sheet, chat in tqdm(chats.items(), desc="Processing chat data"):
+            df = await c.process_chat_df(chat)
+            chats[sheet] = df
+            tqdm.write("Processed folder: " + sheet)
+        
+        output_path = base_path / args.output_file
+        c.save_result(chats, str(output_path))
+    else:
+        print("Error: Keywords could not be loaded. Exiting.")
 
 
 if __name__ == "__main__":
