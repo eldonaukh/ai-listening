@@ -14,4 +14,5 @@ dependencies = [
     "pandera>=0.27.0",
     "pydantic>=2.11.7",
     "tqdm-stubs>=0.2.1",
+    "types-tqdm>=4.67.0.20250809",
 ]
