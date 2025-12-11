@@ -1,23 +1,32 @@
+import asyncio
+
 from tqdm import tqdm
 
 from utils.ai import get_analyzer
 from utils.chatprocessor import ChatProcessor
 from utils.preprocessor import Preprocessor
+from utils.merger import DataManager
 
 
-def main() -> None:
-    p = Preprocessor("./data")
-    chats = p.get_chat_df_dict("chats")
+async def main() -> None:
+    
+    base_path = "./data"
+    d = DataManager(base_path)
+    d.merge_csv_files(src="merge_src", dst="merge_dst")
+    d.organize_csv_by_nature(src="merge_dst", dst="natures", group_nature="./data/group_info.csv")
+    
+    p = Preprocessor(base_path)
+    chats = p.get_chat_df_dict("natures")
     keyword = p.get_keyword_df("keywords.xlsx")
     print(keyword)
     a = get_analyzer("poe", "gemini-2.5-flash")
     if keyword is not None:
         c = ChatProcessor(keyword_df=keyword, analyzer=a)
         for sheet, chat in tqdm(chats.items(), desc=f"Start processing folders"):
-            df = c.process_chat_df(chat)
+            df = await c.process_chat_df(chat)
             chats[sheet] = df
         c.save_result(chats, "./data/output.xlsx")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -43,11 +43,12 @@ class ChatProcessor:
     def non_generic_headers(self) -> list[str]:
         return [header for header in self.unique_headers if "generic" not in header]
 
-    def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
+    async def process_chat_df(self, chat_df: DataFrame[ChatSchema]) -> DataFrame[ChatSchema]:
+        df = chat_df.copy()
         df = self._add_header_columns_to_chat_df(chat_df)
         df = self._tag_keywords(df)
         self._add_keywords_for_system_prompt()
-        df = self._check_sentiment(df)
+        df = await self._check_sentiment(df)
 
         return df
 
@@ -63,43 +64,43 @@ class ChatProcessor:
             subbrand = [brand for brand in self.non_generic_headers if main in brand]
             skip_mask = chat_df[subbrand].any(axis=1)
 
-            self._apply_mask_vec(chat_df, g, skip_mask=skip_mask)
+            self._apply_mask(chat_df, g, skip_mask=skip_mask)
         return chat_df
+
+    # def _apply_mask_old(
+    #     self,
+    #     chat_df: DataFrame[ChatSchema],
+    #     header: str,
+    #     skip_mask: pd.Series | None,
+    #     message_column: str = "messageBody",
+    # ) -> DataFrame[ChatSchema]:
+    #     matched = self._get_keyword_rows_of_header(header)
+
+    #     target = (
+    #         chat_df[message_column]
+    #         if skip_mask is None
+    #         else chat_df.loc[~skip_mask, message_column]
+    #     )
+    #     for row in cast(list[KeywordRow], matched.itertuples(index=False)):
+    #         mask_keyword = target.str.contains(row.keyword, case=False, na=False)
+    #         if row.required_keyword:
+    #             mask_required = target.str.contains(
+    #                 row.required_keyword, case=False, na=False
+    #             )
+    #             final_mask = mask_required & mask_keyword
+    #         else:
+    #             final_mask = mask_keyword
+
+    #     if skip_mask is not None:
+    #         chat_df.loc[~skip_mask, header] = chat_df.loc[
+    #             ~skip_mask, header
+    #         ] | final_mask.astype(int)
+    #     else:
+    #         chat_df[header] = chat_df[header] | final_mask.astype(int)
+
+    #     return chat_df
 
     def _apply_mask(
-        self,
-        chat_df: DataFrame[ChatSchema],
-        header: str,
-        skip_mask: pd.Series | None,
-        message_column: str = "messageBody",
-    ) -> DataFrame[ChatSchema]:
-        matched = self._get_keyword_rows_of_header(header)
-
-        target = (
-            chat_df[message_column]
-            if skip_mask is None
-            else chat_df.loc[~skip_mask, message_column]
-        )
-        for row in cast(list[KeywordRow], matched.itertuples(index=False)):
-            mask_keyword = target.str.contains(row.keyword, case=False, na=False)
-            if row.required_keyword:
-                mask_required = target.str.contains(
-                    row.required_keyword, case=False, na=False
-                )
-                final_mask = mask_required & mask_keyword
-            else:
-                final_mask = mask_keyword
-
-        if skip_mask is not None:
-            chat_df.loc[~skip_mask, header] = chat_df.loc[
-                ~skip_mask, header
-            ] | final_mask.astype(int)
-        else:
-            chat_df[header] = chat_df[header] | final_mask.astype(int)
-
-        return chat_df
-
-    def _apply_mask_vec(
         self,
         chat_df: pd.DataFrame,  # simplified type hint for clarity
         header: str,
@@ -151,9 +152,9 @@ class ChatProcessor:
             for row in cast(list, complex_rows.itertuples(index=False)):
                 # Check (Contains Keyword) AND (Contains Required)
                 row_mask = target_series.str.contains(
-                    row.keyword, case=False, na=False
+                    re.escape(row.keyword), case=False, na=False
                 ) & target_series.str.contains(
-                    row.required_keyword, case=False, na=False
+                    re.escape(row.required_keyword), case=False, na=False
                 )
                 combined_mask |= row_mask
 
@@ -184,7 +185,7 @@ class ChatProcessor:
         chat_df.loc[chat_df[header] == 0, header] = ""
         return chat_df
 
-    def _check_sentiment(self, chat_df: DataFrame[ChatSchema]):
+    async def _check_sentiment(self, chat_df: DataFrame[ChatSchema]):
         all_tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]] = []
         for header in self.unique_headers:
             df = self._chat_df_zero_to_string(chat_df, header)
@@ -202,12 +203,13 @@ class ChatProcessor:
                 ]
                 all_tasks.extend(tasks)
 
-        results = asyncio.run(self._run_async_check(all_tasks))
+        results: list[tuple[str, int, SentimentResponse]] = await tqdmas.gather(
+            *all_tasks, desc="Checking Sentiment"
+        )
 
         for result in results:
             header, index, response = result
             # index_str = str(index)
-
             if response.success:
                 df.loc[index, header] = response.sentiment
 
@@ -215,15 +217,15 @@ class ChatProcessor:
             df.loc[index, "Reason"] = current_reason + f"{header}: {response.reason}\n"
         return df
 
-    async def _run_async_check(
-        self, tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]]
-    ):
+    # async def _run_async_check(
+    #     self, tasks: list[Coroutine[Any, Any, tuple[str, int, SentimentResponse]]]
+    # ):
 
-        results: list[tuple[str, int, SentimentResponse]] = await tqdmas.gather(
-            *tasks, desc="Checking Sentiment"
-        )
+    #     results: list[tuple[str, int, SentimentResponse]] = await tqdmas.gather(
+    #         *tasks, desc="Checking Sentiment"
+    #     )
 
-        return results
+    #     return results
 
     async def _wrap_analyze_with_index(
         self, user_prompt: str, index: int, header: str
