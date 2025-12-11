@@ -21,7 +21,7 @@ async def main() -> None:
     p = Preprocessor(base_path)
     chats = p.get_chat_df_dict("natures")
     keyword = p.get_keyword_df("keywords.xlsx")
-    a = get_analyzer("poe", "gemini-2.5-flash")
+    a = get_analyzer("poe", "gemini-2.5-flash", max_concurrent_task=400, max_rate=400, time_preiod=60)
     if keyword is not None:
         c = ChatProcessor(keyword_df=keyword, analyzer=a)
         for sheet, chat in tqdm(chats.items(), desc=f"Processing chat data"):
