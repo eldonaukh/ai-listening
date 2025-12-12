@@ -200,7 +200,7 @@ def get_analyzer(
     model_name: str = "poe",
     max_concurrent_task: int = 50,
     max_rate: int = 100,
-    time_preiod: int = 60,
+    time_period: int = 60,
 ) -> SentimentAnalyzer:
     provider_name = provider_name.lower().strip()
     match provider_name.lower().strip():
@@ -208,6 +208,6 @@ def get_analyzer(
             base_url = "https://api.poe.com/v1"
 
     provider = LLMProvider(
-        provider_name, base_url, model_name, max_concurrent_task, max_rate, time_preiod
+        provider_name, base_url, model_name, max_concurrent_task, max_rate, time_period
     )
     return SentimentAnalyzer(provider)
